@@ -82,7 +82,32 @@ def write_marker_pngs(outdir, n=6, px=400, quiet=80):
     return paths
 
 
-def scene_xml(marker_paths, P_o, marker_m=MARKER_M, occluders=()):
+def scenery_xml():
+    """Textured backdrop and parallax structure.
+
+    Purely presentational: a white void gives the eye nothing to track, so
+    camera motion is invisible. The markers keep their own baked white quiet
+    zone, so the checker never touches the decodable region - verified by
+    re-running detection with and without.
+    """
+    boxes = []
+    rng = np.random.default_rng(7)
+    for i, (r, a) in enumerate([(0.16, 0.4), (0.22, 1.5), (0.19, 2.6),
+                                (0.25, 3.6), (0.17, 4.5), (0.23, 5.5),
+                                (0.30, 0.9), (0.28, 2.2), (0.31, 4.1)]):
+        x, y = r * np.cos(a), r * np.sin(a)
+        h = 0.012 + 0.030 * rng.random()
+        c = rng.random(3) * 0.5 + 0.25
+        boxes.append(
+            '    <geom type="box" pos="%.4f %.4f %.4f" size="%.4f %.4f %.4f"'
+            ' rgba="%.3f %.3f %.3f 1"/>'
+            % (x, y, -h / 2, 0.012 + 0.02 * rng.random(),
+               0.012 + 0.02 * rng.random(), h / 2, c[0], c[1], c[2]))
+    return "\n".join(boxes)
+
+
+def scene_xml(marker_paths, P_o, marker_m=MARKER_M, occluders=(),
+              scenery=False):
     """MuJoCo scene: markers at P_o on a white plane, plus optional occluders.
 
     occluders : iterable of (x, y, half_w, half_h) boxes in the object plane,
@@ -108,8 +133,15 @@ def scene_xml(marker_paths, P_o, marker_m=MARKER_M, occluders=()):
         for i in range(len(marker_paths)))
     occ = "\n".join(
         '    <geom name="occ%d" type="box" pos="%.6f %.6f -0.010"'
-        ' size="%.6f %.6f 0.004" rgba="0.15 0.15 0.17 1"/>'
+        ' size="%.6f %.6f 0.004" rgba="0.86 0.42 0.10 1"/>'
         % (j, o[0], o[1], o[2], o[3]) for j, o in enumerate(occluders))
+    checker = ("""
+    <texture name="chk" type="2d" builtin="checker" width="600" height="600"
+             rgb1="0.62 0.66 0.72" rgb2="0.80 0.84 0.88"/>
+    <material name="chkmat" texture="chk" texrepeat="14 14"
+              specular="0" shininess="0"/>""" if scenery else "")
+    ground_mat = "chkmat" if scenery else "ground"
+    extra = scenery_xml() if scenery else ""
     return """
 <mujoco model="ibvs_aruco">
   <compiler texturedir="."/>
@@ -127,11 +159,12 @@ def scene_xml(marker_paths, P_o, marker_m=MARKER_M, occluders=()):
   </visual>
   <asset>
 %s
-    <material name="ground" rgba="1 1 1 1" specular="0" shininess="0"/>
+    <material name="ground" rgba="1 1 1 1" specular="0" shininess="0"/>%s
   </asset>
   <worldbody>
-    <geom name="floor" type="box" pos="0 0 0.0028" size="0.6 0.6 0.002"
-          material="ground"/>
+    <geom name="floor" type="box" pos="0 0 0.0028" size="0.9 0.9 0.002"
+          material="%s"/>
+%s
 %s
 %s
     <body name="cambody" mocap="true" pos="0 0 1">
@@ -140,7 +173,8 @@ def scene_xml(marker_paths, P_o, marker_m=MARKER_M, occluders=()):
     </body>
   </worldbody>
 </mujoco>
-""" % (WIDTH, HEIGHT, tex, bodies, occ, FOVY_DEG)
+""" % (WIDTH, HEIGHT, tex, checker, ground_mat, extra, bodies, occ,
+       FOVY_DEG)
 
 
 def mj_camera_from_cTo(cTo):
@@ -162,12 +196,13 @@ def mj_camera_from_cTo(cTo):
 class RenderedFeatureSource:
     """Renders the scene at a given cTo and detects marker-centre features."""
 
-    def __init__(self, P_o, occluders=(), marker_m=MARKER_M, texdir=None):
+    def __init__(self, P_o, occluders=(), marker_m=MARKER_M, texdir=None,
+                 scenery=False):
         texdir = texdir or os.path.join(
             os.environ.get("BLINDSPOT_TEX", "."), "_aruco_tex")
         paths = write_marker_pngs(texdir, n=P_o.shape[0])
         rel = [os.path.relpath(p, texdir) for p in paths]
-        xml = scene_xml(rel, P_o, marker_m, occluders)
+        xml = scene_xml(rel, P_o, marker_m, occluders, scenery)
         self.model = mujoco.MjModel.from_xml_string(
             xml.replace('texturedir="."', 'texturedir="%s"' % texdir))
         self.data = mujoco.MjData(self.model)
