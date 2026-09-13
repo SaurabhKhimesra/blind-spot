@@ -25,11 +25,14 @@ needed here**, which is the opposite of what this project set out to show.
 
 ![Four failure modes and which controllers survive each](fig2_failure_modes.png)
 
-**[▶ Watch it happen (30 s, no narration)](docs/guard_vs_fixed.mp4)** — same
-scene, same occlusion, same correlated motion blur, same seed. Left: the 2001
-partition left permanently on. Right: the same controller with the feature
-guard deciding per step. The only difference between the panels is the control
-law.
+**[▶ Watch it happen (14 s, no narration)](docs/guard_vs_fixed.mp4)** — same
+scene, same occlusion, same correlated motion blur, same seed, same runs. Left:
+the 2001 partition left permanently on — it lurches to |v| 5.47 and loses the
+target in 2 s. Right: the same controller with the feature guard deciding per
+step — it converges. The only difference between the panels is the control law.
+The decisive 2.2 s is shown at 5.6× slow motion, with genuine SE(3)-interpolated
+frames rather than duplicated ones, and each panel carries a live log-scale |v|
+trace on a shared axis.
 
 ## Results
 
