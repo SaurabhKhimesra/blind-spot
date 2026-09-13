@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Internal handoff notes and the superseded plan document.
+# One source of truth for what this repo found: README.md.
+# A web version, if wanted, should be generated from the README into docs/
+# and served by GitHub Pages rather than hand-maintained as a second doc.
+BRIEF.md
+plan.html
+_aruco_tex/
