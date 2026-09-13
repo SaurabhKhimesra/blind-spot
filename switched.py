@@ -234,11 +234,12 @@ def run_switched(P_o, cTo_init, cTo_star, lam=0.5, lam_z=0.6, lam_a=0.6,
                  dt=0.033, steps=1500, visible_mask_fn=None, max_range=50.0,
                  rel_tau=1e-3, rule="rank_margin", min_features=3,
                  tau_switch=1e-6, sigma6_thresh=None, guard_thresh=None,
-                 feature_fn=None):
+                 feature_fn=None, hysteresis=0):
     P_star_c = transform_points(cTo_star, P_o)
     s_star_all = project(P_star_c)
 
     cTo = cTo_init.copy()
+    _hyst = {"state": True, "count": 0}
     log = {k: [] for k in ["t", "err", "v", "cam_pos", "n_vis", "partition",
                            "rank_L", "rank_xy", "cond", "sigma_6"]}
 
@@ -282,8 +283,23 @@ def run_switched(P_o, cTo_init, cTo_star, lam=0.5, lam_z=0.6, lam_a=0.6,
         L = interaction_matrix(sv, Zv)
         L_xy = L[:, XY_COLS]
 
-        on = use_partition(L, L_xy, tau_switch, rule, sigma6_thresh,
-                           sv=sv, guard_thresh=guard_thresh)
+        want = use_partition(L, L_xy, tau_switch, rule, sigma6_thresh,
+                             sv=sv, guard_thresh=guard_thresh)
+        if hysteresis <= 0:
+            on = want
+        else:
+            # hold-off: the candidate state must persist `hysteresis` steps
+            # before it is adopted. Measured to be unnecessary (the guard
+            # does not chatter) and to cost a delayed re-engagement, so the
+            # default is 0. See tests.py.
+            if want == _hyst["state"]:
+                _hyst["count"] = 0
+            else:
+                _hyst["count"] += 1
+                if _hyst["count"] >= hysteresis:
+                    _hyst["state"] = want
+                    _hyst["count"] = 0
+            on = _hyst["state"]
 
         if on:
             # --- combined scheme: 2001 partition, truncated reduced inverse ---

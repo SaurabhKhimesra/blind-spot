@@ -9,7 +9,7 @@ the standard fix for the famous failure makes two of the others worse. That is
 a crooked insertion, a tripped safety stop, or a scrapped part.
 
 **This is a simulation study of control laws, not a robot demo.** There is no
-hardware and no arm: it is a free-flying camera, 93 regression tests, and 16
+hardware and no arm: it is a free-flying camera, 117 regression tests, and 16
 finite-difference checks. The control results are derived with exact feature
 positions, then re-run against a **rendered MuJoCo camera with a real OpenCV
 ArUco detector** — which agrees with exact projection to 0.095 px and
@@ -72,11 +72,11 @@ calibrated per target — never tuned by hand, never fitted on a degraded run.
 
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python tests.py                                    # 93/93 and 16/16
+.venv/bin/python tests.py                                    # 117/117 and 16/16
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
 
-`tests.py` must print **93/93**, `fd_check.py` **16/16**. `fd_check.py` (16/16) verifies every
+`tests.py` must print **117/117** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
 conventions — two sign bugs in this repo were found that way and neither would
 have been caught by inspection.
@@ -119,6 +119,27 @@ is stronger evidence than the result.
    **1.65–3.73**, pose-dependent. No global threshold is defensible, so the
    rank test must use an existence threshold — after which it reduces to
    counting features.
+
+**Why the cheap signal is also the steadier one.** The guard statistic is a
+polygon *area* — an aggregate over every visible point — so independent
+per-point detector noise largely cancels inside it rather than propagating.
+It is inherently smoothed, with no filter added. Measured: 2 px of per-point
+noise moves the statistic by **0.33%** of its threshold on the 4-point square
+and **0.73%** on the 6-point ring. Across all four cases at 0, 0.5 and 2 px of
+feature noise the switch produces **no spurious flips at 0 and 0.5 px, and one
+isolated single-step blip at 2 px** on the retreat case only; every other
+transition is a sustained response to a real dip. That is a second argument
+for the area guard over the spectral rule, which reads σ₆ off a single
+smallest singular value and has no such averaging.
+
+**Hysteresis was tested and rejected, not omitted.** It suppresses that one
+blip, but it delays *both* edges, and the edge that matters is dropping the
+partition the instant the degeneracy appears. Measured on the two-feature
+case: the spike goes from **0.5× with no hold-off to 3.0× (H=2), 3.7× (H=3)
+and 5.7× (H=5)** as the drop is delayed by 1, 2 and 4 steps. The cost of a
+late engagement is far larger than the cost of one spurious blip, so the
+default is no hysteresis. The parameter exists (`hysteresis=` in
+`run_switched`) so the result can be re-checked rather than taken on trust.
 
 4. **"The switching decision needs the interaction-matrix spectrum."** —
    Killed by the area guard **matching σ₆ on all four cases** (and beating it
@@ -198,6 +219,18 @@ Read these before believing any number above.
   even in principle. But no sustained trajectory dwells there, and with the
   goal on the cylinder every controller floors at ≈7e-4 with no winner. A
   detection difference that produces no control difference is not a result.
+- **Calibrate on a KNOWN-GOOD target, never in situ.** This is a deployment
+  trap with no error message. Calibrating the threshold on whatever the camera
+  happens to be looking at makes the degeneracy the norm: the 1st percentile
+  of a *degenerate* target's own distribution sits below its everyday value,
+  so the guard never fires. Measured on the collapsed target — known-good
+  threshold 7.96e-02, in-situ threshold **1.13e-02**, a factor of seven. With
+  the known-good threshold the guard fires and the run converges (‖e‖ =
+  2.7e-05); with the in-situ threshold the partition stays on for all 600
+  steps and the run floors at 2.7e-03. The guard is silently disabled and
+  everything still *looks* like it is working. Calibration belongs to
+  commissioning, on a target you have verified, and the threshold ships as a
+  constant.
 - **With fiducial markers the collapsed case is structurally untestable.**
   The degeneracy *is* the absence of 2D extent, and an area-based marker needs
   2D extent to decode. Six distinguishable ArUco markers need more area than a
@@ -292,7 +325,7 @@ land under a pixel apart.
 | `partitioned.py` | Partitioned IBVS (Corke & Hutchinson 2001); `rel_tau=1e-3` gives the combined controller |
 | `truncated.py` | Adaptive-rank pseudo-inverse and the truncation-only controller |
 | `switched.py` | The runtime switch: `count`, `rank_margin`, `sigma6`, `sigma6_n`, `area_guard`, `alpha_guard`, and the healthy-pose calibration |
-| `tests.py` | 93 regression tests. Run before and after every change |
+| `tests.py` | 117 regression tests. Run before and after every change |
 | `fd_check.py` | 16 finite-difference checks of every derivative, sign, and null space relied on |
 | `compare.py` | Regenerates the results table |
 | `tau_sweep.py` | τ sensitivity and calibration-percentile sensitivity |

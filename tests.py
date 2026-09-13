@@ -532,5 +532,129 @@ check("truncation-only settles far below that floor",
          long_run["err"][-1] / tr_col["err"][-1]))
 
 # ----------------------------------------------------------------------
+# 14. Does the switch chatter under feature noise, and is hysteresis needed?
+#     Noise is specified in PIXELS and converted with the focal length of the
+#     rendered camera (1920 px wide, 45 deg vertical FOV) so the numbers mean
+#     the same thing here and in the MuJoCo study.
+# ----------------------------------------------------------------------
+print("\n--- partition flips under feature noise ---")
+
+FOCAL_PX = 1738.2
+
+
+def noisy_features(P_o, sigma_px, seed=7):
+    """feature_fn that returns exact projection plus per-point pixel noise."""
+    rng = np.random.default_rng(seed)
+    n = P_o.shape[0]
+
+    def f(k, cTo):
+        s = project(transform_points(cTo, P_o))
+        if sigma_px:
+            s = s + rng.normal(0.0, sigma_px / FOCAL_PX, s.shape)
+        return s, np.ones(n, dtype=bool)
+    return f
+
+
+def off_segments(lg):
+    """Contiguous stretches where the partition was dropped."""
+    off = np.where(~lg["partition"])[0]
+    if not off.size:
+        return []
+    parts = np.split(off, np.where(np.diff(off) != 1)[0] + 1)
+    return [(int(s[0]), int(s[-1]), len(s)) for s in parts]
+
+
+AREA_RING = calibrate_area(ring())
+Pr_n, cir_n, csr_n = scenario_camera_retreat(angle_deg=180.0)
+AREA_SQ = calibrate_area(Pr_n)
+
+P_col_n = ring()
+P_col_n[:, 1] *= 0.02
+
+NOISE_CASES = [
+    # name, target, init, star, threshold, mask, min_feat, legit flips
+    ("retreat", Pr_n, cir_n, csr_n, AREA_SQ, None, 3, 0),
+    ("dropout", P_o, ci, cs, AREA_RING, occ3, 3, 2),
+    ("two features", P_o, ci, cs, AREA_RING, AREA_RING and occ_two, 2, 2),
+    ("collapsed", P_col_n, ci, cs, AREA_RING, None, 3, 0),
+]
+
+for name, Pn, cin, csn, thr_n, mask, minf, legit in NOISE_CASES:
+    for sigma in (0.0, 0.5, 2.0):
+        lg = run_switched(P_o=Pn, cTo_init=cin, cTo_star=csn, lam=0.5,
+                          steps=600, rel_tau=1e-3, rule="area_guard",
+                          guard_thresh=thr_n, min_features=minf,
+                          visible_mask_fn=mask,
+                          feature_fn=noisy_features(Pn, sigma))
+        segs = off_segments(lg)
+        # spurious = an isolated blip, i.e. the partition dropped and restored
+        # within a couple of steps. A long segment is the guard responding to
+        # a real sustained dip, which is what it is for.
+        spurious = sum(1 for s in segs if s[2] <= 2)
+        allowed = 0 if sigma <= 0.5 else 1
+        check("no chatter: %-12s at %.1f px" % (name, sigma),
+              spurious <= allowed,
+              "(%d spurious, segments %s)" % (spurious, [s[2] for s in segs]))
+        if sigma == 0.0:
+            n_flips = int(np.sum(lg["partition"][1:] != lg["partition"][:-1]))
+            check("  %-12s clean flips == %d" % (name, legit),
+                  n_flips == legit, "(got %d)" % n_flips)
+
+# ----------------------------------------------------------------------
+# 15. Hysteresis was TESTED and REJECTED, not omitted.
+#     It suppresses the one isolated blip, but it delays BOTH edges - and the
+#     edge that matters is dropping the partition when the degeneracy starts.
+# ----------------------------------------------------------------------
+print("\n--- hysteresis: tested, and it makes things worse ---")
+
+base = run_switched(P_o=P_o, cTo_init=ci, cTo_star=cs, rel_tau=1e-3,
+                    rule="area_guard", guard_thresh=AREA_RING, hysteresis=0,
+                    **kw2)
+check("without hysteresis the two-feature case is protected",
+      spike(base) < 2.0, "(%.1fx)" % spike(base))
+
+worse = []
+for H in (2, 3, 5):
+    lgH = run_switched(P_o=P_o, cTo_init=ci, cTo_star=cs, rel_tau=1e-3,
+                       rule="area_guard", guard_thresh=AREA_RING,
+                       hysteresis=H, **kw2)
+    worse.append(spike(lgH))
+    seg = off_segments(lgH)
+    check("hysteresis H=%d delays the drop and costs protection" % H,
+          spike(lgH) > spike(base) * 3,
+          "(spike %.1fx vs %.1fx, drop delayed to step %d)"
+          % (spike(lgH), spike(base), seg[0][0] if seg else -1))
+check("the cost grows with the hold-off length",
+      worse[0] < worse[1] < worse[2],
+      "(%.1fx -> %.1fx -> %.1fx)" % tuple(worse))
+
+# ----------------------------------------------------------------------
+# 16. The calibration trap: the threshold must come from a KNOWN-GOOD target.
+#     Calibrating in situ on a degenerate target makes the degeneracy the norm
+#     and silently disables the guard.
+# ----------------------------------------------------------------------
+print("\n--- calibrating in situ on a degenerate target disables the guard ---")
+
+thr_good = calibrate_area(ring())
+thr_situ = calibrate_area(P_col_n)          # calibrated ON the collapsed target
+check("in-situ threshold is far below the known-good one",
+      thr_situ < thr_good / 5,
+      "(%.3e vs %.3e)" % (thr_situ, thr_good))
+
+lg_good = run_switched(P_o=P_col_n, cTo_init=ci, cTo_star=cs, lam=0.5,
+                       steps=600, rel_tau=1e-3, rule="area_guard",
+                       guard_thresh=thr_good, min_features=3)
+lg_situ = run_switched(P_o=P_col_n, cTo_init=ci, cTo_star=cs, lam=0.5,
+                       steps=600, rel_tau=1e-3, rule="area_guard",
+                       guard_thresh=thr_situ, min_features=3)
+check("known-good threshold: guard fires and the run converges",
+      (not lg_good["partition"].any()) and lg_good["err"][-1] < 1e-4,
+      "(err %.2e)" % lg_good["err"][-1])
+check("in-situ threshold: guard never fires and the run does not converge",
+      lg_situ["partition"].all() and lg_situ["err"][-1] > 1e-4,
+      "(partition on all %d steps, err %.2e)"
+      % (len(lg_situ["t"]), lg_situ["err"][-1]))
+
+# ----------------------------------------------------------------------
 print("\n%d/%d passed" % (sum(_results), len(_results)))
 raise SystemExit(0 if all(_results) else 1)
