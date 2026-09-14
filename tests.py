@@ -656,5 +656,105 @@ check("in-situ threshold: guard never fires and the run does not converge",
       % (len(lg_situ["t"]), lg_situ["err"][-1]))
 
 # ----------------------------------------------------------------------
+# 17. Forward prediction of the guard signal (dead claim 6).
+#     The predictor is good; the idea still fails, for a structural reason.
+# ----------------------------------------------------------------------
+print("\n--- forward prediction: good horizon, useless where it matters ---")
+
+from predict import roll_forward, truth, steps_to_fire   # noqa: E402
+
+DT_P, HOR = 0.033, 20
+rng_p = np.random.default_rng(0)
+
+# one-step accuracy over a real dt. The 4.8e-07 figure elsewhere is the
+# DERIVATIVE at h=1e-5; a step over a real dt carries O(dt^2) truncation.
+one_step = []
+for _ in range(20):
+    cT = make_pose(R=rot_z(rng_p.uniform(-np.pi, np.pi))
+                   @ rot_x(rng_p.uniform(-0.3, 0.3)),
+                   t=np.array([rng_p.uniform(-0.08, 0.08),
+                               rng_p.uniform(-0.08, 0.08),
+                               rng_p.uniform(0.5, 0.95)]))
+    vv_p = np.concatenate([rng_p.normal(0, 0.15, 3), rng_p.normal(0, 0.3, 3)])
+    Pc_p = transform_points(cT, P_o)
+    sp, _ = roll_forward(project(Pc_p), Pc_p[:, 2], vv_p, DT_P, 1)
+    st, _ = truth(cT, P_o, vv_p, DT_P, 1)
+    one_step.extend((np.linalg.norm(sp - st, axis=1) * FOCAL_PX).tolist())
+one_step = np.array(one_step)
+check("one-step prediction is sub-pixel", np.median(one_step) < 1.0,
+      "(median %.3f px, p95 %.3f px)"
+      % (np.median(one_step), np.percentile(one_step, 95)))
+
+# the horizon, measured on the DECISION-RELEVANT statistic at high speed
+cT_h = make_pose(R=rot_z(0.35) @ rot_x(0.15), t=np.array([0.08, -0.06, 0.9]))
+Pc_h = transform_points(cT_h, P_o)
+errs_h = []
+for _ in range(20):
+    vv_h = rng_p.normal(0, 1.0, 6)
+    vv_h = vv_h / np.linalg.norm(vv_h) * 2.0            # |v| = 2.0
+    sp, _ = roll_forward(project(Pc_h), Pc_h[:, 2], vv_h, DT_P, HOR)
+    st, _ = truth(cT_h, P_o, vv_h, DT_P, HOR)
+    if sp is None:
+        continue
+    errs_h.append(abs(_poly(sp) - _poly(st)) / AREA_RING * 100)
+check("K=20 (660 ms) is trustworthy even at |v|=2",
+      np.median(errs_h) < 10.0,
+      "(median %.2f%% of threshold, vs a guard margin of 13-62%%)"
+      % np.median(errs_h))
+
+# already-degenerate at t=0: nothing to predict
+Pc_c = transform_points(ci, P_col_n)
+check("collapsed target: already below threshold at t=0",
+      steps_to_fire(project(Pc_c), Pc_c[:, 2], np.zeros(6), DT_P, AREA_RING,
+                    HOR) == 0)
+
+
+def warning_ms(runner, Po, cin, csn, thr_w, mask, minf):
+    """Milliseconds between the first warning and the guard actually firing."""
+    rec = {"s": [], "Z": []}
+
+    def probe(k, cTo):
+        Pc = transform_points(cTo, Po)
+        rec["s"].append(project(Pc))
+        rec["Z"].append(Pc[:, 2].copy())
+        return rec["s"][-1], np.ones(Po.shape[0], dtype=bool)
+
+    lg = runner(P_o=Po, cTo_init=cin, cTo_star=csn, lam=0.5, dt=DT_P,
+                steps=400, min_features=minf, visible_mask_fn=mask,
+                feature_fn=probe)
+    V = lg["v"]
+    n = min(len(V), len(rec["s"]))
+    fire = None
+    for k in range(n):
+        vis = np.ones(Po.shape[0], dtype=bool) if mask is None \
+            else mask(k, rec["s"][k])
+        if vis.sum() >= 1 and _poly(rec["s"][k][vis]) < thr_w:
+            fire = k
+            break
+    if fire is None:
+        return None, None
+    for k in range(fire):
+        vis = np.ones(Po.shape[0], dtype=bool) if mask is None \
+            else mask(k, rec["s"][k])
+        if steps_to_fire(rec["s"][k][vis], rec["Z"][k][vis], V[k], DT_P,
+                         thr_w, HOR) is not None:
+            return fire, (fire - k) * DT_P * 1000.0
+    return fire, 0.0
+
+
+_f, ms_cam = warning_ms(run_ibvs, Pr_n, cir_n, csr_n, AREA_SQ, None, 3)
+check("camera-driven transition gives real warning", ms_cam > 200,
+      "(fires at step %d, %.0f ms of warning)" % (_f, ms_cam))
+
+for nm_w, mask_w, mf_w in [("dropout", occ3, 3), ("two features", occ_two, 2)]:
+    _f2, ms_w = warning_ms(
+        lambda **k: run_switched(rel_tau=1e-3, rule="area_guard",
+                                 guard_thresh=AREA_RING, **k),
+        P_o, ci, cs, AREA_RING, mask_w, mf_w)
+    check("exogenous transition gives NO warning: %s" % nm_w, ms_w == 0.0,
+          "(fires at step %d, %.0f ms - an occluder is not in the state)"
+          % (_f2, ms_w))
+
+# ----------------------------------------------------------------------
 print("\n%d/%d passed" % (sum(_results), len(_results)))
 raise SystemExit(0 if all(_results) else 1)

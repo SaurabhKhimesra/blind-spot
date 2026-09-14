@@ -9,7 +9,7 @@ the standard fix for the famous failure makes two of the others worse. That is
 a crooked insertion, a tripped safety stop, or a scrapped part.
 
 **This is a simulation study of control laws, not a robot demo.** There is no
-hardware and no arm: it is a free-flying camera, 117 regression tests, and 16
+hardware and no arm: it is a free-flying camera, 123 regression tests, and 16
 finite-difference checks. The control results are derived with exact feature
 positions, then re-run against a **rendered MuJoCo camera with a real OpenCV
 ArUco detector** — which agrees with exact projection to 0.095 px and
@@ -72,11 +72,11 @@ calibrated per target — never tuned by hand, never fitted on a degraded run.
 
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python tests.py                                    # 117/117 and 16/16
+.venv/bin/python tests.py                                    # 123/123 and 16/16
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
 
-`tests.py` must print **117/117** and `fd_check.py` **16/16**. `fd_check.py` verifies every
+`tests.py` must print **123/123** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
 conventions — two sign bugs in this repo were found that way and neither would
 have been caught by inspection.
@@ -97,7 +97,7 @@ degeneracy rather than at random.
 
 ## Dead claims
 
-Four of my own claims died in the making of this, plus the project's founding
+Five of my own claims died in the making of this, plus the project's founding
 hypothesis. Each is listed with the number that killed it, because the trail
 is stronger evidence than the result.
 
@@ -152,6 +152,35 @@ default is no hysteresis. The parameter exists (`hysteresis=` in
    combined's peak falls 5.96 → 0.326 across the τ sweep against
    truncation-only's 0.322. The spike gap essentially vanishes. Only the
    convergence half of that row is real evidence.
+
+6. **"Predicting the guard signal forward buys useful warning."** —
+   *Warning is available precisely where it is not needed.* Rolling the
+   features forward on the current heading with `s_next = s + L v dt` predicts
+   the degeneracy the **camera** causes, never the degeneracy the **world**
+   causes, and the three transitions split accordingly:
+
+   | transition type | example | warning |
+   |---|---|---|
+   | camera-driven | classic IBVS retreating until the target shrinks | **231 ms** |
+   | exogenous | an occluder arrives (dropout, two features) | **0 ms** |
+   | already degenerate at t=0 | the collapsed target | **0 ms** (nothing to predict) |
+
+   The idea did not die from a bad predictor. The predictor is good: one step
+   is sub-pixel (0.157 px median), and measured on the decision-relevant
+   quantity — error in the polygon-area statistic as a fraction of its
+   threshold, stratified by speed — **K = 20 steps (660 ms) is trustworthy
+   even at |v| > 1.5** (4.9% median, 9.7% p95, against a guard margin of
+   13–62%). It costs 1.394 ms per control cycle. The gate passed.
+
+   It dies on structure. With the partition on, the camera never retreats, so
+   the area never falls, so the guard never trips — **the one case with
+   warning is the case that never needed it.** Where the guard does fire, no
+   warning exists by construction, because an occluder is not in the state
+   vector. And given the 231 ms that does exist, ramping the gain down as the
+   predicted time shrinks buys **4% on peak velocity (78.59 vs 82.00) and
+   nothing on convergence** against simply reacting at the cliff.
+
+   `predict.py`, locked by tests.
 
 Two further corrections worth recording: the health metric `S[-1]` was wrong
 because it compares matrices of different shapes and cannot see a null space —
@@ -325,7 +354,7 @@ land under a pixel apart.
 | `partitioned.py` | Partitioned IBVS (Corke & Hutchinson 2001); `rel_tau=1e-3` gives the combined controller |
 | `truncated.py` | Adaptive-rank pseudo-inverse and the truncation-only controller |
 | `switched.py` | The runtime switch: `count`, `rank_margin`, `sigma6`, `sigma6_n`, `area_guard`, `alpha_guard`, and the healthy-pose calibration |
-| `tests.py` | 117 regression tests. Run before and after every change |
+| `tests.py` | 123 regression tests. Run before and after every change |
 | `fd_check.py` | 16 finite-difference checks of every derivative, sign, and null space relied on |
 | `compare.py` | Regenerates the results table |
 | `tau_sweep.py` | τ sensitivity and calibration-percentile sensitivity |
@@ -337,6 +366,7 @@ land under a pixel apart.
 | `mj_degrade.py` | Run-driven motion blur and lagged auto-exposure; `se3_log` verified by finite difference |
 | `mj_correlated.py` | The correlated-degradation study and `docs/guard_trace.csv` |
 | `mj_video.py` | The side-by-side video |
+| `predict.py` | Forward rollout of the guard signal and "steps to guard fire" (dead claim 6) |
 
 ## Setup note
 
