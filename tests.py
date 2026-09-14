@@ -756,5 +756,138 @@ for nm_w, mask_w, mf_w in [("dropout", occ3, 3), ("two features", occ_two, 2)]:
           % (_f2, ms_w))
 
 # ----------------------------------------------------------------------
+# 18. Where the controller stops and observability begins.
+#     Three configurations the controller genuinely cannot finish - and in all
+#     three EVERY control law lands on the identical pose error, because the
+#     residual is information the features never carried.
+# ----------------------------------------------------------------------
+print("\n--- observability limits, not control failures ---")
+
+
+def _cam(T):
+    return -T[:3, :3].T @ T[:3, 3]
+
+
+def pose_err(lg, csn):
+    return float(np.linalg.norm(lg["cam_pos"][-1] - _cam(csn)))
+
+
+def all_controllers(Po, cin, csn, mask, minf, steps=2000):
+    """switched / classic / truncation / partitioned on the same case."""
+    kw_a = dict(P_o=Po, cTo_init=cin, cTo_star=csn, lam=0.5, dt=0.033,
+                steps=steps, min_features=minf, visible_mask_fn=mask)
+    return {
+        "switched": run_switched(rel_tau=1e-3, rule="area_guard",
+                                 guard_thresh=AREA_RING, **kw_a),
+        "classic": run_ibvs(**kw_a),
+        "truncation": run_truncated(rel_tau=1e-3, **kw_a),
+        "partitioned": run_partitioned(**kw_a),
+    }
+
+
+def perm_two(k, s):
+    v = np.zeros(6, dtype=bool)
+    v[[0, 3]] = True
+    return v
+
+
+P_lin = np.stack([np.linspace(-0.06, 0.06, 3), np.zeros(3), np.zeros(3)],
+                 axis=1)
+ci_lin = make_pose(R=rot_z(0.3) @ rot_x(0.2), t=np.array([0.03, -0.02, 0.85]))
+
+_R = 0.05
+_a = np.array([0.0, 2 * np.pi / 3, 4 * np.pi / 3])
+P_cyl = np.stack([_R * np.cos(_a), _R * np.sin(_a), np.zeros(3)], axis=1)
+cs_cyl = make_pose(R=np.eye(3), t=np.array([-_R, 0.0, 0.6]))
+ci_cyl = make_pose(R=rot_z(0.4) @ rot_x(0.15), t=np.array([-0.02, 0.03, 0.85]))
+
+# per-case expectations, because the three cases do NOT behave uniformly
+OBS_CASES = [
+    # name, target, init, star, mask, min_feat, pose err, trio agrees?
+    ("permanent 2 features", P_o, ci, cs, perm_two, 2, 0.0695, True),
+    ("3 collinear points", P_lin, ci_lin, cs, None, 3, 0.1130, True),
+    ("goal on danger cylinder", P_cyl, ci_cyl, cs_cyl, None, 3, 0.1405, False),
+]
+
+for name, Po, cin, csn, mask, minf, expect, trio_agrees in OBS_CASES:
+    R = all_controllers(Po, cin, csn, mask, minf)
+    pe = {k: pose_err(v, csn) for k, v in R.items()}
+    check("%-24s: pose error is %.4f m" % (name, expect),
+          abs(pe["switched"] - expect) < 5e-3, "(%.4f m)" % pe["switched"])
+    check("  %-22s: switched and classic land identically" % name,
+          abs(pe["switched"] - pe["classic"]) < 1e-3,
+          "(%.4f / %.4f m)" % (pe["switched"], pe["classic"]))
+    if trio_agrees:
+        check("  %-22s: truncation lands there too" % name,
+              abs(pe["truncation"] - pe["switched"]) < 1e-3,
+              "(%.4f m)" % pe["truncation"])
+        check("  %-22s: partitioned is the exception, and worse" % name,
+              pe["partitioned"] > pe["switched"] * 5,
+              "(%.4f m vs %.4f)" % (pe["partitioned"], pe["switched"]))
+    else:
+        # on the danger cylinder truncation is the odd one out, and its
+        # smaller pose number is NOT a better outcome: it stops early with
+        # seven orders more image error than the others.
+        check("  %-22s: truncation stops elsewhere" % name,
+              abs(pe["truncation"] - pe["switched"]) > 0.02,
+              "(%.4f m vs %.4f)" % (pe["truncation"], pe["switched"]))
+        check("  %-22s: and it did not converge in image space" % name,
+              R["truncation"]["err"][-1] > 1e-6
+              and R["switched"]["err"][-1] < 1e-8,
+              "(|e| %.1e vs %.1e)"
+              % (R["truncation"]["err"][-1], R["switched"]["err"][-1]))
+    v_end = float(np.linalg.norm(R["switched"]["v"][-1]))
+    check("  %-22s: settles, does not thrash" % name, v_end < 1e-6,
+          "(final |v| = %.1e)" % v_end)
+
+# the controller zeroes everything it can actually see
+s_star_2 = project(transform_points(cs, P_o))
+seen = []
+
+
+def _probe2(k, cTo):
+    s2 = project(transform_points(cTo, P_o))
+    seen.append(float(np.linalg.norm((s2[[0, 3]] - s_star_2[[0, 3]])
+                                     .reshape(-1))))
+    return s2, np.ones(6, dtype=bool)
+
+
+run_switched(P_o=P_o, cTo_init=ci, cTo_star=cs, lam=0.5, dt=0.033, steps=2000,
+             rel_tau=1e-3, rule="area_guard", guard_thresh=AREA_RING,
+             min_features=2, visible_mask_fn=perm_two, feature_fn=_probe2)
+check("with 2 features it zeroes the error on the pair it can see",
+      seen[-1] < 1e-9, "(%.1e, from %.1e)" % (seen[-1], seen[0]))
+
+# ----------------------------------------------------------------------
+# 19. The shipped tau has a constructible case where it is WORSE than no
+#     intervention at all. This is a caveat, not a closure.
+# ----------------------------------------------------------------------
+print("\n--- tau=1e-3 has a case where doing nothing is better ---")
+
+ci_rot = make_pose(R=rot_x(0.5), t=np.array([0.0, 0.0, 0.9]))
+kw_c = dict(P_o=P_col_n, cTo_init=ci_rot, cTo_star=cs, lam=0.5, dt=0.033,
+            steps=2000, min_features=3)
+
+sw_default = run_switched(rel_tau=1e-3, rule="area_guard",
+                          guard_thresh=AREA_RING, **kw_c)
+sw_tuned = run_switched(rel_tau=1e-5, rule="area_guard",
+                        guard_thresh=AREA_RING, **kw_c)
+cl_plain = run_ibvs(**kw_c)
+
+check("at the shipped tau=1e-3 the switched controller stalls",
+      pose_err(sw_default, cs) > 0.2,
+      "(pose err %.4f m)" % pose_err(sw_default, cs))
+check("plain classic IBVS converges exactly on the same case",
+      pose_err(cl_plain, cs) < 0.01 and cl_plain["err"][-1] < 1e-4,
+      "(pose err %.4f m, |e| %.1e)"
+      % (pose_err(cl_plain, cs), cl_plain["err"][-1]))
+check("tau=1e-5 completes it exactly", pose_err(sw_tuned, cs) < 0.01,
+      "(pose err %.4f m)" % pose_err(sw_tuned, cs))
+check("so the stall is tau tuning, not structure",
+      pose_err(sw_tuned, cs) < pose_err(sw_default, cs) / 10,
+      "(%.4f m at 1e-5 vs %.4f m at 1e-3)"
+      % (pose_err(sw_tuned, cs), pose_err(sw_default, cs)))
+
+# ----------------------------------------------------------------------
 print("\n%d/%d passed" % (sum(_results), len(_results)))
 raise SystemExit(0 if all(_results) else 1)
