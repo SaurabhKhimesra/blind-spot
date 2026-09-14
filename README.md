@@ -2,6 +2,23 @@
 
 **Guard the features your controller is built on, not the matrix it inverts.**
 
+```python
+pip install .                       # then, in your own IBVS loop:
+
+from blindspot import FeatureGuard
+guard = FeatureGuard.load("my_target.json")     # from calibration; no default
+...
+if guard.partition_ok(s_visible):               # normalised image coords
+    v = my_partitioned_control(...)             # 2001 partition is safe
+else:
+    v = my_plain_control(...)                   # it is not; don't use it
+h = guard.evaluate(s_visible)                   # signal, threshold, margin, n, decision
+```
+
+`python examples/quickstart.py` runs it end to end in 30 seconds with no setup.
+Calibrate on a **known-good** target:
+`python -m blindspot.calibrate --geometry target.json --goal-pose pose.json -o my_target.json`
+
 A vision-guided robot working in clutter or closing the last centimetre loses
 features to occlusion and has its target geometry collapse as it gets close.
 When that happens the controller does not slow down or stop — it lurches, and
@@ -75,6 +92,8 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python tests.py                                    # 143/143 and 16/16
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
+
+`test_blindspot.py` (25 more) covers the packaged API.
 
 `tests.py` must print **143/143** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
@@ -415,6 +434,10 @@ land under a pixel apart.
 | `mj_correlated.py` | The correlated-degradation study and `docs/guard_trace.csv` |
 | `mj_video.py` | The side-by-side video |
 | `predict.py` | Forward rollout of the guard signal and "steps to guard fire" (dead claim 6) |
+| `blindspot/` | The package: the guard, units, and the calibrate command. No controllers, no default threshold |
+| `blindspot/reference/` | The verified controllers, as runnable examples rather than the product |
+| `test_blindspot.py` | 25 tests of the API contract, including what it refuses to do |
+| `examples/quickstart.py` | Runs immediately on the shipped ring target |
 
 ## Setup note
 

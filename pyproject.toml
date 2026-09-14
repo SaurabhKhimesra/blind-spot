@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blindspot"
+version = "0.1.0"
+description = "A per-step guard for image-based visual servoing: is the partition safe right now?"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+# Only the reference controllers, figures and studies need these.
+reference = ["scipy>=1.10", "matplotlib>=3.7"]
+
+[tool.setuptools]
+packages = ["blindspot", "blindspot.reference"]
+# The reference controllers are the verified top-level modules the findings
+# were measured with. They are shipped as-is rather than copied into the
+# package, so there is exactly one implementation of each.
+py-modules = ["ibvs_core", "partitioned", "truncated", "switched", "predict"]
