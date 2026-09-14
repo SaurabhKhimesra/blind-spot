@@ -9,7 +9,7 @@ the standard fix for the famous failure makes two of the others worse. That is
 a crooked insertion, a tripped safety stop, or a scrapped part.
 
 **This is a simulation study of control laws, not a robot demo.** There is no
-hardware and no arm: it is a free-flying camera, 123 regression tests, and 16
+hardware and no arm: it is a free-flying camera, 143 regression tests, and 16
 finite-difference checks. The control results are derived with exact feature
 positions, then re-run against a **rendered MuJoCo camera with a real OpenCV
 ArUco detector** — which agrees with exact projection to 0.095 px and
@@ -72,11 +72,11 @@ calibrated per target — never tuned by hand, never fitted on a degraded run.
 
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python tests.py                                    # 123/123 and 16/16
+.venv/bin/python tests.py                                    # 143/143 and 16/16
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
 
-`tests.py` must print **123/123** and `fd_check.py` **16/16**. `fd_check.py` verifies every
+`tests.py` must print **143/143** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
 conventions — two sign bugs in this repo were found that way and neither would
 have been caught by inspection.
@@ -248,6 +248,17 @@ Read these before believing any number above.
   even in principle. But no sustained trajectory dwells there, and with the
   goal on the cylinder every controller floors at ≈7e-4 with no winner. A
   detection difference that produces no control difference is not a result.
+- **The shipped τ has a constructible case where it is worse than no
+  intervention.** On the collapsed target with an initial rotation about the
+  collapse line, the switched controller at the default **τ=1e-3 stalls at a
+  pose error of 0.297 m**, while **plain classic IBVS converges exactly**
+  (0.0000 m, ‖e‖ = 1.5e-10). Truncation is discarding a direction that is weak
+  but still usable, and dropping the partition hands control to exactly that
+  truncation. It is a tuning failure, not a structural one — **τ=1e-5 completes
+  the same case exactly** — but the default value has a case where intervening
+  is worse than doing nothing, and τ is a single global constant chosen from
+  the sweep in `tau_sweep.py`. If you deploy this, sweep τ on your own
+  geometry rather than inheriting 1e-3.
 - **Calibrate on a KNOWN-GOOD target, never in situ.** This is a deployment
   trap with no error message. Calibrating the threshold on whatever the camera
   happens to be looking at makes the degeneracy the norm: the 1st percentile
@@ -273,6 +284,43 @@ Read these before believing any number above.
   camera, fixed dt = 0.033 s, no actuator dynamics, no joint limits, no contact.
 - **Clean cost is threshold-dependent** (+2.4% to +13%), so it is meaningless
   quoted without its convergence threshold.
+
+## Where the controller stops and observability begins
+
+Three configurations the controller genuinely cannot finish. In none of them
+is the controller at fault.
+
+| configuration | final ‖e‖ | final \|v\| | pose error | switched = classic? |
+|---|---|---|---|---|
+| permanent 2 of 6 features | 1.7e-03 (over all 6) | 3.0e-11 | **0.0695 m** | yes, and truncation too |
+| 3 permanently collinear points | 8.5e-12 | 3.0e-11 | **0.1130 m** | yes, and truncation too |
+| goal on the 3-point danger cylinder | 4.6e-11 | 1.5e-09 | **0.1405 m** | yes |
+
+In each the controller drives the image error to the floor, settles at a
+velocity around 1e-11, and does not thrash, oscillate or diverge. With only
+two features visible it zeroes the error on the pair it can actually see to
+**7.0e-12** — the 1.7e-03 residual is entirely in the four features it cannot
+see.
+
+**The decisive observation is that the control law does not matter.** Classic
+IBVS, adaptive-rank truncation and the guard-switched controller all land on
+the *identical* pose error — 0.0695 m, 0.1130 m — to four decimal places.
+Partitioned IBVS is the exception and is far worse (0.9825 m and 1.3762 m),
+which is the two-feature brittleness already documented above. The residual is
+not something a better controller recovers; it is information the features
+never carried. Two point features give four constraints for six degrees of
+freedom; three collinear points make L rank-deficient (σ₆ = 1.3e-16); the
+danger cylinder makes it singular (σ₆ = 2.2e-16).
+
+One wrinkle worth stating rather than smoothing: on the danger cylinder,
+truncation at τ=1e-3 stops at a *different* pose (0.0847 m). That is not a
+better outcome — it stalls with an image error of 3.8e-04 where the others
+reach 5e-11, so it simply stopped somewhere else, earlier.
+
+The guard fires correctly in all three cases and then has nothing useful to
+command. The missing capability is not a controller mode: it is acquiring
+features that constrain the pose, which is perception or planning, and outside
+what this repo studies.
 
 ## Five bugs the rendered port surfaced
 
@@ -354,7 +402,7 @@ land under a pixel apart.
 | `partitioned.py` | Partitioned IBVS (Corke & Hutchinson 2001); `rel_tau=1e-3` gives the combined controller |
 | `truncated.py` | Adaptive-rank pseudo-inverse and the truncation-only controller |
 | `switched.py` | The runtime switch: `count`, `rank_margin`, `sigma6`, `sigma6_n`, `area_guard`, `alpha_guard`, and the healthy-pose calibration |
-| `tests.py` | 123 regression tests. Run before and after every change |
+| `tests.py` | 143 regression tests. Run before and after every change |
 | `fd_check.py` | 16 finite-difference checks of every derivative, sign, and null space relied on |
 | `compare.py` | Regenerates the results table |
 | `tau_sweep.py` | τ sensitivity and calibration-percentile sensitivity |
