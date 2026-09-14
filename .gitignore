@@ -9,3 +9,5 @@ __pycache__/
 BRIEF.md
 plan.html
 _aruco_tex/
+build/
+*.egg-info/
