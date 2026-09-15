@@ -54,6 +54,51 @@ genuine SE(3)-interpolated frames rather than duplicated ones, and each panel
 carries a live log-scale |v| trace on a shared fixed axis.
 [Full-quality mp4 (19.6 s)](docs/guard_vs_fixed.mp4).
 
+## ROS 2
+
+A thin node that publishes the decision. It does **not** control anything —
+keep your servo loop and gate it on the Bool.
+
+```bash
+# Ubuntu 26.04 (resolute) -> ROS 2 Lyrical
+sudo apt install -y ros-lyrical-ros-base python3-numpy
+cd ros2_ws && colcon build && source install/setup.bash
+
+ros2 run blindspot_ros guard_node --ros-args \
+    -p calibration:=/abs/path/my_target.json \
+    -r detections:=/aruco/detections \
+    -r camera_info:=/camera/camera_info
+```
+
+| | topic | type |
+|---|---|---|
+| in | `detections` | `vision_msgs/Detection2DArray` |
+| in | `camera_info` | `sensor_msgs/CameraInfo` |
+| out | `~/partition_ok` | `std_msgs/Bool` |
+| out | `/diagnostics` | `diagnostic_msgs/DiagnosticArray` |
+
+`calibration` is a required parameter: the node refuses to start without one
+and prints the calibrate command, for the same reason the library does.
+
+**Ordering matters, and the node handles it.** The guard signal is a shoelace
+polygon area, so it depends on the order of the points, and a detector reports
+whatever order it happens to find. An order that crosses itself gives a small
+area and fires the guard for a reason that has nothing to do with the
+geometry. Detections are therefore ordered by id, which reproduces the order
+calibration used; without ids there is an angular fallback, and either way the
+ordering used is published in the diagnostic. The node also cross-checks the
+shoelace area against the convex-hull area and raises the diagnostic to ERROR
+if they disagree, because at that point the decision is not measuring what it
+claims to.
+
+Intrinsics come from `camera_info` when the camera is calibrated. If it
+publishes zeros, set `fovy_deg` and the node falls back to a principal point
+of (W-1)/2 — and says in the diagnostic which it used.
+
+`blindspot/ros_bridge.py` holds all of that logic and imports no ROS, so it is
+covered by `test_blindspot.py` on a machine with no ROS installed. The rclpy
+node itself is a thin wrapper and is **not** covered by those tests.
+
 ## Results
 
 | Controller | Retreat 180° | Dropout spike | 2 features | Collapsed target | Clean cost |
@@ -93,7 +138,7 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
 
-`test_blindspot.py` (25 more) covers the packaged API.
+`test_blindspot.py` (34 more) covers the packaged API and the ROS bridge.
 
 `tests.py` must print **143/143** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
@@ -436,8 +481,10 @@ land under a pixel apart.
 | `predict.py` | Forward rollout of the guard signal and "steps to guard fire" (dead claim 6) |
 | `blindspot/` | The package: the guard, units, and the calibrate command. No controllers, no default threshold |
 | `blindspot/reference/` | The verified controllers, as runnable examples rather than the product |
-| `test_blindspot.py` | 25 tests of the API contract, including what it refuses to do |
+| `test_blindspot.py` | 34 tests of the API contract and the ROS bridge, including what they refuse to do |
 | `examples/quickstart.py` | Runs immediately on the shipped ring target |
+| `blindspot/ros_bridge.py` | Detector output to guard input: ordering, ids, units. No ROS imports, so it is testable without ROS |
+| `ros2_ws/src/blindspot_ros/` | The ROS 2 node. Publishes the decision and the diagnostic; controls nothing |
 
 ## Setup note
 
