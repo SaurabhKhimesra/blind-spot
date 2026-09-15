@@ -159,5 +159,84 @@ check("blindspot.reference has them, labelled as examples",
 check("  and its docstring says they are not the product",
       "EXAMPLES, not the product" in reference.__doc__)
 
+print("\n--- ROS bridge: ordering, units, message shapes ---")
+from blindspot.ros_bridge import (detection_center, detection_label,  # noqa: E402
+                                  features_to_normalised,
+                                  intrinsics_from_camera_info,
+                                  order_features, ordering_is_suspect)
+
+sq = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]])
+bow = sq[[0, 2, 1, 3]]
+check("a sane ordering is not flagged", not ordering_is_suspect(sq))
+check("a self-crossing ordering IS flagged", ordering_is_suspect(bow),
+      "(shoelace area collapses, which would fire the guard for the wrong "
+      "reason)")
+o_id, _, how = order_features(bow, ids=[0, 2, 1, 3])
+check("ordering by detection id repairs it",
+      how == "id" and not ordering_is_suspect(o_id))
+o_ang, _, how2 = order_features(bow, ids=None)
+check("without ids it falls back to an angular sort",
+      how2 == "angular" and not ordering_is_suspect(o_ang))
+
+fx_i, fy_i, cx_i, cy_i, src_i = intrinsics_from_camera_info(
+    [1738.2, 0, 959.5, 0, 1738.2, 719.5, 0, 0, 1], 1920, 1440)
+check("a calibrated camera_info is used as-is",
+      src_i == "camera_info" and cx_i == 959.5 and fx_i == 1738.2)
+_, _, cx_u, cy_u, src_u = intrinsics_from_camera_info([0] * 9, 1920, 1440)
+check("an uncalibrated one reports so and offers (W-1)/2",
+      src_u == "uncalibrated" and cx_u == 959.5 and cy_u == 719.5)
+
+s_ros, _, _ = features_to_normalised(uv, fx, fy, cx, cy,
+                                     ids=list(range(6)))
+check("bridge reproduces the guard decision from pixels",
+      guard.evaluate(s_ros).decision == guard.evaluate(s_true).decision
+      and abs(guard.evaluate(s_ros).signal
+              - guard.evaluate(s_true).signal) < 1e-12)
+
+
+class _P:
+    x, y = 12.0, 34.0
+
+
+class _C4:
+    position = _P()
+
+
+class _B4:
+    center = _C4()
+
+
+class _D4:
+    bbox = _B4()
+    id = "3"
+
+
+class _C3:
+    x, y = 5.0, 6.0
+
+
+class _B3:
+    center = _C3()
+
+
+class _H:
+    class_id = "7"
+
+
+class _R:
+    hypothesis = _H()
+
+
+class _D3:
+    bbox = _B3()
+    id = ""
+    results = [_R()]
+
+
+check("reads vision_msgs 4.x Detection2D (Pose2D.position)",
+      detection_center(_D4()) == (12.0, 34.0) and detection_label(_D4()) == "3")
+check("reads the older shape and the hypothesis class_id",
+      detection_center(_D3()) == (5.0, 6.0) and detection_label(_D3()) == "7")
+
 print("\n%d/%d passed" % (sum(_r), len(_r)))
 raise SystemExit(0 if all(_r) else 1)
