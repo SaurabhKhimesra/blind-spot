@@ -95,6 +95,28 @@ Intrinsics come from `camera_info` when the camera is calibrated. If it
 publishes zeros, set `fovy_deg` and the node falls back to a principal point
 of (W-1)/2 — and says in the diagnostic which it used.
 
+### The arm demo (Gazebo)
+
+Two UR5e cells in one Gazebo world doing the same insertion against a panel
+that tilts toward edge-on mid-approach. Left runs with the partition always
+on, right lets the guard decide. One physics clock, so the cells are frame
+locked and any difference between them comes from the guard alone.
+
+```bash
+~/blind-spot/run_arm_demo.sh        # Gazebo + both cells + the servo loop
+~/blind-spot/view_hud.sh            # second terminal: the side-by-side HUD
+```
+
+Both scripts source ROS themselves and clear `LD_LIBRARY_PATH`, because a
+shell that has sourced a conda ROS env will otherwise feed conda libraries to
+system binaries and fail confusingly.
+
+Measured in one run: both cells converge identically (6/6 features, ‖e‖ 0.005,
+margin 1.54×), then the panel tilts and they diverge — the unguarded cell
+keeps the partition at margin 2.18× and drives in close to the workpiece,
+while the guarded cell drops the partition at margin 0.55× and holds its
+standoff, with all six markers visible in both throughout.
+
 ### Live simulation with visuals
 
 ```bash
