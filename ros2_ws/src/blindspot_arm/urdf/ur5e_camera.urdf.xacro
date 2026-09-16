@@ -9,13 +9,22 @@
 
   <xacro:arg name="ur_type" default="ur5e"/>
   <xacro:arg name="name" default="ur"/>
+  <xacro:arg name="prefix" default=""/>
+  <xacro:arg name="ns" default=""/>
+  <xacro:arg name="controllers_file"
+             default="$(find blindspot_arm)/config/controllers.yaml"/>
 
+  <!-- must be named exactly "world": that is the URDF convention that
+       anchors the base to the global frame. Prefixing it made the arm a
+       free-floating body which drifted off its spawn point (measured
+       ur5e_left at 0,0.172,0.206 instead of the origin). Link names are
+       model-scoped in Gazebo, so both robots can have one. -->
   <link name="world"/>
 
   <xacro:include filename="$(find ur_description)/urdf/ur_macro.xacro"/>
   <xacro:ur_robot
       name="$(arg name)"
-      tf_prefix=""
+      tf_prefix="$(arg prefix)"
       parent="world"
       joint_limits_parameters_file="$(find ur_description)/config/$(arg ur_type)/joint_limits.yaml"
       kinematics_parameters_file="$(find ur_description)/config/$(arg ur_type)/default_kinematics.yaml"
@@ -25,7 +34,7 @@
   </xacro:ur_robot>
 
   <!-- eye in hand: camera rigidly attached to tool0, looking along +z -->
-  <link name="camera_link">
+  <link name="$(arg prefix)camera_link">
     <visual>
       <geometry><box size="0.03 0.06 0.03"/></geometry>
       <material name="cam"><color rgba="0.15 0.15 0.18 1"/></material>
@@ -36,27 +45,27 @@
       <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
     </inertial>
   </link>
-  <joint name="camera_joint" type="fixed">
-    <parent link="tool0"/>
-    <child link="camera_link"/>
+  <joint name="$(arg prefix)camera_joint" type="fixed">
+    <parent link="$(arg prefix)tool0"/>
+    <child link="$(arg prefix)camera_link"/>
     <origin xyz="0 0 0.02" rpy="0 0 0"/>
   </joint>
 
   <!-- optical frame: computer-vision convention, +z forward, +y down.
        The guard works in normalised image coordinates in THIS frame. -->
-  <link name="camera_optical_frame"/>
-  <joint name="camera_optical_joint" type="fixed">
-    <parent link="camera_link"/>
-    <child link="camera_optical_frame"/>
+  <link name="$(arg prefix)camera_optical_frame"/>
+  <joint name="$(arg prefix)camera_optical_joint" type="fixed">
+    <parent link="$(arg prefix)camera_link"/>
+    <child link="$(arg prefix)camera_optical_frame"/>
     <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
-  <ros2_control name="GzSystem" type="system">
+  <ros2_control name="$(arg prefix)GzSystem" type="system">
     <hardware>
       <plugin>gz_ros2_control/GazeboSimSystem</plugin>
     </hardware>
     <xacro:macro name="jnt" params="n init">
-      <joint name="${n}">
+      <joint name="$(arg prefix)${n}">
         <command_interface name="position"/>
         <state_interface name="position"><param name="initial_value">${init}</param></state_interface>
         <state_interface name="velocity"/>
@@ -74,23 +83,24 @@
   <gazebo>
     <plugin filename="gz_ros2_control-system"
             name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-      <parameters>$(find blindspot_arm)/config/controllers.yaml</parameters>
+      <parameters>$(arg controllers_file)</parameters>
+      <ros><namespace>$(arg ns)</namespace></ros>
     </plugin>
   </gazebo>
 
-  <gazebo reference="camera_link">
-    <sensor name="wrist_camera" type="camera">
+  <gazebo reference="$(arg prefix)camera_link">
+    <sensor name="$(arg prefix)wrist_camera" type="camera">
       <camera>
         <horizontal_fov>1.0472</horizontal_fov>
         <image><width>640</width><height>480</height><format>R8G8B8</format></image>
         <clip><near>0.02</near><far>10.0</far></clip>
-        <optical_frame_id>camera_optical_frame</optical_frame_id>
+        <optical_frame_id>$(arg prefix)camera_optical_frame</optical_frame_id>
       </camera>
       <always_on>1</always_on>
       <update_rate>20</update_rate>
       <visualize>false</visualize>
-      <topic>wrist_camera</topic>
-      <gz_frame_id>camera_optical_frame</gz_frame_id>
+      <topic>$(arg prefix)wrist_camera</topic>
+      <gz_frame_id>$(arg prefix)camera_optical_frame</gz_frame_id>
     </sensor>
   </gazebo>
 
