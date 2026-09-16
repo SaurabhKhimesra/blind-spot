@@ -50,8 +50,13 @@ K_DEFAULT = (_FX, _FX, (IMG_W - 1) / 2.0, (IMG_H - 1) / 2.0)
 # otherwise a run inherits wherever the previous one stopped and the tilt
 # begins from an unconverged pose - which looked like the guard failing when
 # it was really the approach never having happened.
-T_HOME, T_TILT, T_RAMP, T_END = 8.0, 22.0, 9.0, 46.0
-TILT_MAX = 1.15          # radians. Tuned: enough to drive the polygon
+# A SLOW tilt after convergence leaves no error to drive, so the
+# unguarded law never has to invert anything hard and the failure is
+# invisible. The degeneracy has to arrive while the controller still
+# has work to do - that is when the numpy study measured 5.47 peak
+# against 1.01.
+T_HOME, T_TILT, T_RAMP, T_END = 8.0, 20.0, 2.0, 40.0
+TILT_MAX = 1.08          # radians. Tuned: enough to drive the polygon
                          # area under the guard threshold, not so far that
                          # a dot leaves the frame. The story needs all six
                          # visible while the geometry degenerates.
@@ -162,6 +167,7 @@ class Cell:
         self.q = None
         self.reading = None
         self.twist_norm = 0.0
+        self.peak_v = 0.0
         self.err = 0.0
         self.n_feat = 0
         desc = subprocess.run(
@@ -237,6 +243,7 @@ class Cell:
         qd = np.linalg.pinv(J) @ tw
         qd = np.clip(qd, -1.5, 1.5)
         self.twist_norm = float(np.linalg.norm(v_cam))
+        self.peak_v = max(self.peak_v, self.twist_norm)
 
         self.dbg = (self.n_feat, self.err, float(np.linalg.norm(qd)),
                     float(np.linalg.norm(self.q)))
@@ -287,13 +294,13 @@ class Duel(Node):
                 c.go_home()
             else:
                 c.step()
-        if int(t * 10) % 10 == 0 and t < T_TILT + 2:
+        if int(t * 10) % 5 == 0 and T_TILT - 2 < t < T_TILT + 14:
             for nm, c in (("L", self.left), ("R", self.right)):
                 d = getattr(c, "dbg", None)
                 if d:
                     self.get_logger().info(
-                        "%s t=%5.1f n=%d |e|=%.3f |qd|=%.3f |q|=%.2f"
-                        % (nm, t, d[0], d[1], d[2], d[3]))
+                        "%s t=%5.1f n=%d |e|=%.3f |v|=%.3f peak=%.3f"
+                        % (nm, t, d[0], d[1], c.twist_norm, c.peak_v))
         self.publish_hud(t, a)
 
     def publish_hud(self, t, a):
