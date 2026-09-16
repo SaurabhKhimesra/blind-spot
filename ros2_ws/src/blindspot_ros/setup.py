@@ -10,7 +10,9 @@ setup(
         ("share/ament_index/resource_index/packages",
          ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
-        ("share/" + package_name + "/launch", ["launch/demo.launch.py"]),
+        ("share/" + package_name + "/launch",
+         ["launch/demo.launch.py", "launch/sim.launch.py"]),
+        ("share/" + package_name + "/rviz", ["rviz/guard.rviz"]),
     ],
     install_requires=["setuptools", "blindspot"],
     zip_safe=True,
@@ -22,6 +24,7 @@ setup(
         "console_scripts": [
             "guard_node = blindspot_ros.guard_node:main",
             "fake_detections = blindspot_ros.fake_detections:main",
+            "sim_node = blindspot_ros.sim_node:main",
         ],
     },
 )

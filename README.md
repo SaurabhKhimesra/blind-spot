@@ -95,6 +95,25 @@ Intrinsics come from `camera_info` when the camera is calibrated. If it
 publishes zeros, set `fovy_deg` and the node falls back to a principal point
 of (W-1)/2 — and says in the diagnostic which it used.
 
+### Live simulation with visuals
+
+```bash
+ros2 launch blindspot_ros sim.launch.py calibration:=/tmp/ring_cal.json
+```
+
+Opens RViz with the camera view, the target in 3D and the camera frame, and
+runs a servo loop **closed through the guard node**: the control law is chosen
+every step by the Bool on `/blindspot_guard/partition_ok`.
+
+    partition_ok == True   -> the 2001 partitioned law
+    partition_ok == False  -> plain truncated law on the full interaction matrix
+
+It cycles healthy / occluded to 2 markers / collapsed target, re-posing the
+camera at each change so every regime shows a real approach rather than a
+converged still. Topics: `camera/image`, `markers`, `tf`, `detections`,
+`camera_info`. Everything is drawn with numpy, so there is no OpenCV or
+cv_bridge dependency. Pass `rviz:=false` for headless.
+
 ### Verified running
 
 Run end to end against synthetic detections, with the guard changing its mind
@@ -527,7 +546,7 @@ land under a pixel apart.
 | `test_blindspot.py` | 34 tests of the API contract and the ROS bridge, including what they refuse to do |
 | `examples/quickstart.py` | Runs immediately on the shipped ring target |
 | `blindspot/ros_bridge.py` | Detector output to guard input: ordering, ids, units. No ROS imports, so it is testable without ROS |
-| `ros2_ws/src/blindspot_ros/` | The ROS 2 node, plus `fake_detections` and a launch file so the demo runs with no camera |
+| `ros2_ws/src/blindspot_ros/` | The ROS 2 node, a live simulation with RViz visuals, and a headless demo |
 
 ## Setup note
 

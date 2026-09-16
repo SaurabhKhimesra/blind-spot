@@ -165,7 +165,7 @@ def main(argv=None):
         node = GuardNode()
     except RuntimeError as e:
         print("blindspot_guard: %s" % e)
-        rclpy.shutdown()
+        _shutdown()
         return 1
     try:
         rclpy.spin(node)
@@ -173,8 +173,22 @@ def main(argv=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        _shutdown()
     return 0
+
+
+def _shutdown():
+    """Shut down only if nobody has already.
+
+    ros2 launch delivers SIGINT and rclpy may already have torn the context
+    down by the time `finally` runs; calling shutdown again raises RCLError
+    and the node exits 1 on a clean Ctrl-C.
+    """
+    try:
+        if rclpy.ok():
+            rclpy.shutdown()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

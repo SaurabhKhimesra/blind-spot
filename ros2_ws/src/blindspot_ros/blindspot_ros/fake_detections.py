@@ -112,7 +112,11 @@ def main(argv=None):
         pass
     finally:
         n.destroy_node()
-        rclpy.shutdown()
+        try:                       # launch may already have shut the context
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

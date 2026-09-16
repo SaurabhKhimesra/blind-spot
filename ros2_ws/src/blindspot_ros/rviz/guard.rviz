@@ -1,0 +1,47 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Global Options:
+    Background Color: 38; 38; 44
+    Fixed Frame: world
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.05
+      Plane Cell Count: 20
+      Color: 100; 100; 110
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Marker Scale: 0.15
+      Show Arrows: false
+      Show Names: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Target
+      Enabled: true
+      Topic:
+        Value: /markers
+        Depth: 5
+        Reliability Policy: Reliable
+    - Class: rviz_default_plugins/Image
+      Name: Camera view
+      Enabled: true
+      Topic:
+        Value: /camera/image
+        Depth: 5
+        Reliability Policy: Reliable
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 1.1
+      Focal Point: {X: 0, Y: 0, Z: 0}
+      Pitch: 0.55
+      Yaw: 2.2
+Window Geometry:
+  Height: 900
+  Width: 1500
+  Displays: {collapsed: false}
