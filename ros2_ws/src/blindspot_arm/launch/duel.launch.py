@@ -91,7 +91,12 @@ def generate_launch_description():
                        output="screen", additional_env=env),
         Node(package="ros_gz_bridge", executable="parameter_bridge",
              output="log",
-             arguments=["/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock"]),
+             arguments=[
+                 "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
+                 # ROS -> gz, to drive the panel tilt joints
+                 "/panel_tilt_left@std_msgs/msg/Float64]gz.msgs.Double",
+                 "/panel_tilt_right@std_msgs/msg/Float64]gz.msgs.Double",
+             ]),
     ]
     actions += cell(pkg, "left", 0.0, ros_share, ros_lib)
     actions += cell(pkg, "right", -0.9, ros_share, ros_lib)

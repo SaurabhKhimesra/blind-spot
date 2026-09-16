@@ -46,8 +46,8 @@
       <link name="post">
         <inertial><mass>50</mass><inertia><ixx>1</ixx><iyy>1</iyy><izz>1</izz></inertia></inertial>
         <visual name="v">
-          <pose>0.02 0 -0.21 0 0 0</pose>
-          <geometry><box><size>0.04 0.04 0.42</size></box></geometry>
+          <pose>0.16 0 -0.21 0 0 0</pose>
+          <geometry><box><size>0.03 0.03 0.42</size></box></geometry>
           <material><ambient>0.25 0.26 0.3 1</ambient><diffuse>0.3 0.31 0.35 1</diffuse></material>
         </visual>
       </link>
@@ -125,8 +125,8 @@
       <link name="post">
         <inertial><mass>50</mass><inertia><ixx>1</ixx><iyy>1</iyy><izz>1</izz></inertia></inertial>
         <visual name="v">
-          <pose>0.02 0 -0.21 0 0 0</pose>
-          <geometry><box><size>0.04 0.04 0.42</size></box></geometry>
+          <pose>0.16 0 -0.21 0 0 0</pose>
+          <geometry><box><size>0.03 0.03 0.42</size></box></geometry>
           <material><ambient>0.25 0.26 0.3 1</ambient><diffuse>0.3 0.31 0.35 1</diffuse></material>
         </visual>
       </link>
