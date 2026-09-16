@@ -1,47 +1,84 @@
 Panels:
   - Class: rviz_common/Displays
     Name: Displays
+    Property Tree Widget:
+      Expanded: ~
+    Tree Height: 400
 Visualization Manager:
+  Class: ""
+  Name: root
   Global Options:
-    Background Color: 38; 38; 44
+    Background Color: 30; 30; 36
     Fixed Frame: world
+    Frame Rate: 30
   Displays:
     - Class: rviz_default_plugins/Grid
+      Enabled: true
       Name: Grid
-      Enabled: true
-      Cell Size: 0.05
-      Plane Cell Count: 20
-      Color: 100; 100; 110
+      Cell Size: 0.02
+      Plane Cell Count: 14
+      Color: 90; 90; 105
+      Line Style:
+        Line Width: 0.001
+        Value: Lines
+      Value: true
     - Class: rviz_default_plugins/TF
+      Enabled: true
       Name: TF
-      Enabled: true
-      Marker Scale: 0.15
+      Marker Scale: 0.08
       Show Arrows: false
+      Show Axes: true
       Show Names: true
+      Value: true
     - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
       Name: Target
-      Enabled: true
+      Namespaces:
+        {}
       Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
         Value: /markers
-        Depth: 5
-        Reliability Policy: Reliable
+      Value: true
     - Class: rviz_default_plugins/Image
-      Name: Camera view
       Enabled: true
+      Name: Camera view
+      Max Value: 1
+      Min Value: 0
+      Median window: 5
+      Normalize Range: true
+      Transport Hint: raw
       Topic:
-        Value: /camera/image
         Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
         Reliability Policy: Reliable
+        Value: /camera/image
+      Value: true
   Tools:
     - Class: rviz_default_plugins/MoveCamera
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.1
-      Focal Point: {X: 0, Y: 0, Z: 0}
-      Pitch: 0.55
-      Yaw: 2.2
+      Name: Current View
+      Distance: 0.38
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Pitch: 0.62
+      Yaw: 2.35
+      Target Frame: world
+      Value: Orbit (rviz)
+    Saved: ~
 Window Geometry:
-  Height: 900
-  Width: 1500
-  Displays: {collapsed: false}
+  Displays:
+    collapsed: false
+  Camera view:
+    collapsed: false
+  Height: 1000
+  Width: 1760
+  Hide Left Dock: false
+  Hide Right Dock: false
