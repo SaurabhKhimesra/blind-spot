@@ -8,6 +8,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -16,7 +17,9 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     pkg = get_package_share_directory("blindspot_arm")
     xacro_file = os.path.join(pkg, "urdf", "ur5e_camera.urdf.xacro")
-    world = os.path.join(pkg, "worlds", "table.sdf")
+    world = os.path.join(pkg, "worlds",
+                         LaunchConfiguration("world").perform(ctx)
+                         if False else "panel.sdf")
     ros_prefix = os.environ.get("ROS_DISTRO_PREFIX", "/opt/ros/lyrical")
     ros_share = os.path.join(ros_prefix, "share")
     ros_lib = os.path.join(ros_prefix, "lib")
@@ -31,14 +34,27 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("gui", default_value="true"),
 
+        # `gz sim -r` runs server AND gui; `-s` is server only. The gui
+        # argument was declared and then never used, so every run was
+        # whatever the default happened to be.
         ExecuteProcess(
             cmd=["gz", "sim", "-r", "-v", "2", world],
+            condition=IfCondition(gui),
             output="screen",
             # Gazebo resolves model:// URIs and system plugins from its own
             # paths, not from the ROS prefix, so both have to be handed to it
             # explicitly. Without the first the UR meshes do not load; without
             # the second gz_ros2_control never starts and there are no
             # controllers and no joint_states.
+            additional_env={
+                "GZ_SIM_RESOURCE_PATH": ros_share + os.pathsep + pkg,
+                "GZ_SIM_SYSTEM_PLUGIN_PATH": ros_lib,
+            }),
+
+        ExecuteProcess(
+            cmd=["gz", "sim", "-s", "-r", "-v", "2", world],
+            condition=UnlessCondition(gui),
+            output="screen",
             additional_env={
                 "GZ_SIM_RESOURCE_PATH": ros_share + os.pathsep + pkg,
                 "GZ_SIM_SYSTEM_PLUGIN_PATH": ros_lib,
@@ -73,16 +89,22 @@ def generate_launch_description():
         # load_controller`: the spawner forwards the parameter file to the
         # controller node. Without it the controller starts with an empty
         # `joints` list and fails to initialise.
-        TimerAction(period=12.0, actions=[
+        TimerAction(period=8.0, actions=[
             Node(package="controller_manager", executable="spawner",
+                 # wait for the controller_manager rather than guessing a
+                 # sleep: a heavier world starts gz_ros2_control later and a
+                 # fixed timer fires before any controller exists, so the
+                 # spawner aborts with "no controller with this name exists".
                  arguments=["joint_state_broadcaster",
-                            "--param-file", controllers_yaml],
+                            "--param-file", controllers_yaml,
+                            "--controller-manager-timeout", "90"],
                  output="screen"),
         ]),
-        TimerAction(period=16.0, actions=[
+        TimerAction(period=10.0, actions=[
             Node(package="controller_manager", executable="spawner",
                  arguments=["arm_controller",
-                            "--param-file", controllers_yaml],
+                            "--param-file", controllers_yaml,
+                            "--controller-manager-timeout", "90"],
                  output="screen"),
         ]),
     ])
