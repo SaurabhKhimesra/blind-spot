@@ -25,6 +25,7 @@ fires and nothing looks wrong.
 
 import numpy as np
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSProfile, ReliabilityPolicy
@@ -169,7 +170,12 @@ def main(argv=None):
         return 1
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
+        # rclpy >= Lyrical shuts the context down in its own SIGINT
+        # handler and spin() then raises ExternalShutdownException
+        # rather than KeyboardInterrupt. Catching only the latter
+        # exits 1 on a clean Ctrl-C - measured on Lyrical, where
+        # Jazzy had shown a clean exit.
         pass
     finally:
         node.destroy_node()

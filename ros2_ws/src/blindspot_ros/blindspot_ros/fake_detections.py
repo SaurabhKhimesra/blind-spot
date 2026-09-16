@@ -12,6 +12,7 @@ marker centres, which is enough to see the guard change its mind:
 
 import numpy as np
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import CameraInfo
@@ -108,7 +109,12 @@ def main(argv=None):
     n = Fake()
     try:
         rclpy.spin(n)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
+        # rclpy >= Lyrical shuts the context down in its own SIGINT
+        # handler and spin() then raises ExternalShutdownException
+        # rather than KeyboardInterrupt. Catching only the latter
+        # exits 1 on a clean Ctrl-C - measured on Lyrical, where
+        # Jazzy had shown a clean exit.
         pass
     finally:
         n.destroy_node()

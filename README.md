@@ -140,13 +140,29 @@ blindspot_guard: parameter 'calibration' is required; this node ships no
 default threshold. Calibrate on a KNOWN-GOOD target: ...
 ```
 
-**What was verified, and on what.** The above ran on **ROS 2 Jazzy installed
-through RoboStack** (conda-forge, user space, no root), because this machine
-has no passwordless sudo. Ubuntu 26.04's apt distro is **Lyrical**, and that
-path — `apt install ros-lyrical-ros-base` — is the one to use on a robot and
-has **not** been run here. The node code is distro-agnostic (rclpy, std_msgs,
-sensor_msgs, vision_msgs, diagnostic_msgs) but that is an argument, not a
-measurement.
+**Verified on ROS 2 Lyrical** (`apt install ros-lyrical-desktop
+ros-lyrical-vision-msgs`, Ubuntu 26.04, system Python 3.14 / numpy 2.3.5) and
+also on Jazzy via RoboStack. The guard margin across a full approach:
+
+| regime | n | margin range | decision |
+|---|---|---|---|
+| healthy | 6 | 1.093 – 1.624 | `partition_ok` |
+| collapsed target | 6 | 0.155 – 0.222 | `drop_partition` |
+| occluded to 2 | 2 | 0.000 | `drop_partition` |
+
+All three are cleanly separated from the threshold; the margin varies along
+the approach, which is why a single frame from one distro reads 1.093 and
+another reads 1.564.
+
+Running it on the real distro immediately found a bug that Jazzy did not.
+`rclpy` on Lyrical shuts the context down inside its own SIGINT handler, so
+`spin()` raises `ExternalShutdownException` rather than `KeyboardInterrupt`;
+catching only the latter exits 1 on a clean Ctrl-C. All three nodes now catch
+both and exit with "process has finished cleanly". Being distro-agnostic in
+principle was an argument, and the argument was wrong.
+
+`blindspot` does not need to be pip-installed for the node: system Python has
+no pip, so `PYTHONPATH=/path/to/blind-spot` is enough.
 
 No-root install, if you want to reproduce the demo rather than deploy:
 
