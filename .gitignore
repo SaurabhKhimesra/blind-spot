@@ -11,3 +11,8 @@ plan.html
 _aruco_tex/
 build/
 *.egg-info/
+
+# colcon build artifacts
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/

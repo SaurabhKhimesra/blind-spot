@@ -95,9 +95,52 @@ Intrinsics come from `camera_info` when the camera is calibrated. If it
 publishes zeros, set `fovy_deg` and the node falls back to a principal point
 of (W-1)/2 — and says in the diagnostic which it used.
 
-`blindspot/ros_bridge.py` holds all of that logic and imports no ROS, so it is
-covered by `test_blindspot.py` on a machine with no ROS installed. The rclpy
-node itself is a thin wrapper and is **not** covered by those tests.
+### Verified running
+
+Run end to end against synthetic detections, with the guard changing its mind
+across three regimes. `ros2 launch blindspot_ros demo.launch.py
+calibration:=...` starts the guard plus a `fake_detections` node that needs no
+camera, and deliberately **shuffles** the detection order each frame so the
+ordering path is exercised rather than assumed:
+
+| phase | n | margin | decision | diagnostic level | ordering |
+|---|---|---|---|---|---|
+| healthy, 6 markers | 6 | 1.564 | `partition_ok` | OK | id |
+| occluded, 2 markers | 2 | 0.000 | `drop_partition` | WARN | id |
+| collapsed target, 6 markers | 6 | 0.221 | `drop_partition` | WARN | id |
+
+The margins reproduce the library's own numbers (1.55 and 0.22 in
+`examples/quickstart.py`), so the ROS path is not computing something
+different. The third row is the case feature-counting cannot see: all six
+markers present and the guard still correctly drops the partition.
+
+Starting the node without a calibration parameter fails immediately:
+
+```
+blindspot_guard: parameter 'calibration' is required; this node ships no
+default threshold. Calibrate on a KNOWN-GOOD target: ...
+```
+
+**What was verified, and on what.** The above ran on **ROS 2 Jazzy installed
+through RoboStack** (conda-forge, user space, no root), because this machine
+has no passwordless sudo. Ubuntu 26.04's apt distro is **Lyrical**, and that
+path — `apt install ros-lyrical-ros-base` — is the one to use on a robot and
+has **not** been run here. The node code is distro-agnostic (rclpy, std_msgs,
+sensor_msgs, vision_msgs, diagnostic_msgs) but that is an argument, not a
+measurement.
+
+No-root install, if you want to reproduce the demo rather than deploy:
+
+```bash
+micromamba create -y -n rosguard -c robostack-jazzy -c conda-forge \
+    python=3.11 ros-jazzy-ros-base ros-jazzy-vision-msgs \
+    ros-jazzy-diagnostic-msgs numpy
+micromamba run -n rosguard python -m pip install colcon-common-extensions .
+```
+
+`blindspot/ros_bridge.py` holds the ordering, id and unit logic and imports no
+ROS, so it is covered by `test_blindspot.py` on a machine with no ROS at all.
+The rclpy node is a thin wrapper over it.
 
 ## Results
 
@@ -484,7 +527,7 @@ land under a pixel apart.
 | `test_blindspot.py` | 34 tests of the API contract and the ROS bridge, including what they refuse to do |
 | `examples/quickstart.py` | Runs immediately on the shipped ring target |
 | `blindspot/ros_bridge.py` | Detector output to guard input: ordering, ids, units. No ROS imports, so it is testable without ROS |
-| `ros2_ws/src/blindspot_ros/` | The ROS 2 node. Publishes the decision and the diagnostic; controls nothing |
+| `ros2_ws/src/blindspot_ros/` | The ROS 2 node, plus `fake_detections` and a launch file so the demo runs with no camera |
 
 ## Setup note
 

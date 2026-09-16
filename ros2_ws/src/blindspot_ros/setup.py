@@ -10,6 +10,7 @@ setup(
         ("share/ament_index/resource_index/packages",
          ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
+        ("share/" + package_name + "/launch", ["launch/demo.launch.py"]),
     ],
     install_requires=["setuptools", "blindspot"],
     zip_safe=True,
@@ -20,6 +21,7 @@ setup(
     entry_points={
         "console_scripts": [
             "guard_node = blindspot_ros.guard_node:main",
+            "fake_detections = blindspot_ros.fake_detections:main",
         ],
     },
 )
