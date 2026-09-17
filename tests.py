@@ -590,6 +590,10 @@ for name, Pn, cin, csn, thr_n, mask, minf, legit in NOISE_CASES:
         # spurious = an isolated blip, i.e. the partition dropped and restored
         # within a couple of steps. A long segment is the guard responding to
         # a real sustained dip, which is what it is for.
+        # NOTE: this counts chatter only. On retreat, 0.5 px of noise also
+        # causes one SUSTAINED switch that the clean run never makes: noise
+        # breaks the start's symmetry and triggers the orbit false positive
+        # locked in section 21. It passes here because it is not chatter.
         spurious = sum(1 for s in segs if s[2] <= 2)
         allowed = 0 if sigma <= 0.5 else 1
         check("no chatter: %-12s at %.1f px" % (name, sigma),
@@ -936,10 +940,11 @@ am, sm = _margins(P_hard, 0)
 check("strong 3D collapse (c=0.05): both fire",
       am < 1.0 and sm < 1.0, "(area %.2fx, sigma_6 %.2fx)" % (am, sm))
 
-# ...and the false positive is, measured, harmless for a free-flying camera.
+# ...and on a TILTING TARGET the false positive is, measured, harmless.
 # A spike seen once in the Gazebo arm demo was attributed to the switch and
 # did NOT reproduce: across 16 onset/speed combinations peak |v| was identical
 # under all three rules in 15. Locked so nobody reintroduces the claim.
+# It is not harmless everywhere: section 21.
 from partitioned import line_alpha as _la, wrap as _wrap  # noqa: E402
 from partitioned import Z_COLS as _ZC, XY_COLS as _XC  # noqa: E402
 
@@ -986,6 +991,176 @@ check("but the false positive costs nothing: peak |v| within 10%",
       abs(pk["area"][0] - pk["always"][0]) <= 0.10 * pk["always"][0],
       "(%.3f area vs %.3f partition-always vs %.3f sigma_6)"
       % (pk["area"][0], pk["always"][0], pk["sigma6"][0]))
+
+# ----------------------------------------------------------------------
+# 21. The retreat row, from a start that is not exactly symmetric.
+#     The Results table starts the retreat case from an exact rotation about
+#     the optical axis, where the partition's xy solve is exactly zero by
+#     symmetry. From any small start error, all of that xy command lands in
+#     the two weakest directions of L_xy - an orbit about the target - and
+#     the view swings nearly edge-on. The area guard reads the foreshortening
+#     as degeneracy and hands control to the law that retreats. sigma_6 stays
+#     silent (target and matrix are healthy) and inherits the orbit, including
+#     the starts where it goes fully edge-on. A trade, not a win. The README
+#     rates come from 100 random starts per angle (lateral <= 2 cm, tilt <=
+#     3 deg per axis, seed 2026); the cases locked here are drawn from them.
+# ----------------------------------------------------------------------
+print("\n--- the retreat row from an imperfect start: a trade, not a win ---")
+
+P21 = square_target()
+CS21 = make_pose(t=np.array([0.0, 0.0, 0.8]))
+A21, S21 = calibrate_area(P21), calibrate_sigma6(P21)
+
+
+def _start(dx=0.0, dy=0.0, tx=0.0, ty=0.0, ang=180.0):
+    return make_pose(R=rot_z(np.deg2rad(ang)) @ rot_x(np.deg2rad(tx))
+                     @ _rot_y(np.deg2rad(ty)), t=np.array([dx, dy, 0.8]))
+
+
+def _seeded_start(i, n=100, seed=2026):
+    """Start i of the random sample the README rates come from."""
+    r = np.random.default_rng(seed)
+    for j in range(n):
+        ph, rad = r.uniform(0, 2 * np.pi), r.uniform(0, 0.02)
+        tx, ty = r.uniform(-3, 3, 2)
+        if j == i:
+            return _start(rad * np.cos(ph), rad * np.sin(ph), tx, ty)
+
+
+def _retreat(ci_, rule, thr=None, steps=1500, noise_rng=None):
+    tilt = []
+
+    def fn(k, cTo):
+        # angle between the optical axis and the target normal
+        tilt.append(np.degrees(np.arccos(min(1.0, abs(cTo[2, 2])))))
+        s_ = project(transform_points(cTo, P21))
+        if noise_rng is not None:
+            s_ = s_ + noise_rng.normal(0.0, 0.5 / FOCAL_PX, s_.shape)
+        return s_, np.ones(4, dtype=bool)
+    lg = run_switched(P_o=P21, cTo_init=ci_, cTo_star=CS21, lam=0.5,
+                      steps=steps, rel_tau=1e-3, rule=rule,
+                      guard_thresh=A21 if thr is None else thr,
+                      sigma6_thresh=S21, min_features=3, feature_fn=fn)
+    # a shortened log means the loop broke: a target point reached the
+    # camera plane, i.e. the view went edge-on
+    done = len(lg["err"]) == steps
+    return dict(aborted=not done, conv=done and lg["err"][-1] < 1e-4,
+                dist=float(np.linalg.norm(lg["cam_pos"], axis=1).max()),
+                off=int(np.sum(~np.asarray(lg["partition"], dtype=bool))),
+                tilt=max(tilt))
+
+
+def _xy_command(ci_):
+    Pc = transform_points(ci_, P21)
+    L_ = interaction_matrix(project(Pc), Pc[:, 2])
+    _, sv_, Vt_ = np.linalg.svd(L_[:, XY_COLS], full_matrices=False)
+    lg = run_switched(P_o=P21, cTo_init=ci_, cTo_star=CS21, lam=0.5, steps=1,
+                      rel_tau=1e-3, rule="always", min_features=3)
+    vxy = np.asarray(lg["v"][0])[XY_COLS]
+    n = float(np.linalg.norm(vxy))
+    share = float(np.linalg.norm(Vt_[-2:] @ vxy)) / n if n > 0 else 0.0
+    return n, share, sv_[0] / sv_[-1], Vt_[-2:]
+
+
+n0 = _xy_command(_start())[0]
+n2, share2, amp2, weak2 = _xy_command(_start(tx=2.0))
+check("exact 180 deg start: the partition commands no xy motion at all",
+      n0 < 1e-9, "(|v_xy| %.1e)" % n0)
+check("2 deg start error: ALL of v_xy lies in L_xy's two weakest directions",
+      share2 > 0.99 and amp2 > 100,
+      "(share %.3f, |v_xy| %.2f, weakest direction %.0fx below strongest)"
+      % (share2, n2, amp2))
+# The two weak singular values are equal, so the SVD may return any mix of
+# the pair; test the subspace, not the vectors. An orbit about a point at
+# depth Z pairs vx = -Z wy, or vy = +Z wx. Columns are [vx, vy, wx, wy].
+_orbits = [np.array([-0.8, 0.0, 0.0, 1.0]), np.array([0.0, 0.8, 1.0, 0.0])]
+_in_weak = [float(np.linalg.norm(weak2 @ o) / np.linalg.norm(o))
+            for o in _orbits]
+check("  and that pair of directions is the orbit about the target",
+      min(_in_weak) > 0.99,
+      "(orbits at Z = 0.8 lie %s inside it)" % np.round(_in_weak, 4))
+
+_R3 = ("always", "sigma6", "area_guard")
+r_ex = {r: _retreat(_start(), r) for r in _R3}
+check("exact start (the Results row): nobody switches or retreats",
+      all(x["off"] == 0 and x["dist"] < 0.81 and x["conv"]
+          for x in r_ex.values()))
+
+r2 = {r: _retreat(_start(tx=2.0), r) for r in _R3}
+check("2 deg start: the partition still avoids the retreat...",
+      r2["always"]["conv"] and r2["always"]["dist"] < 0.82,
+      "(%.2f m)" % r2["always"]["dist"])
+check("  ...but swings the view nearly edge-on",
+      r2["always"]["tilt"] > 70, "(peak tilt %.0f deg)" % r2["always"]["tilt"])
+check("  sigma_6 never fires",
+      r2["sigma6"]["off"] == 0
+      and abs(r2["sigma6"]["dist"] - r2["always"]["dist"]) < 1e-9)
+check("  area guard fires on the foreshortening; the fallback retreats",
+      r2["area_guard"]["off"] > 100 and r2["area_guard"]["dist"] > 2.0
+      and r2["area_guard"]["conv"],
+      "(%d steps off, %.2f m, converges)"
+      % (r2["area_guard"]["off"], r2["area_guard"]["dist"]))
+
+s61 = _seeded_start(61)
+r61 = {r: _retreat(s61, r) for r in _R3}
+check("random start 61: the orbit goes fully edge-on and the partition aborts",
+      r61["always"]["aborted"] and r61["always"]["tilt"] > 85,
+      "(peak tilt %.1f deg)" % r61["always"]["tilt"])
+check("  sigma_6 stays silent and aborts with it",
+      r61["sigma6"]["aborted"] and r61["sigma6"]["off"] == 0)
+check("  area guard switches early and converges",
+      r61["area_guard"]["conv"], "(backs away to %.2f m)"
+      % r61["area_guard"]["dist"])
+
+# Calibration cannot buy both. A wider healthy tilt range shrinks the retreat
+# until the guard stops firing, and then it aborts with the partition.
+r09 = _retreat(s61, "area_guard", thr=calibrate_area(P21, tilt=0.9))
+r12 = _retreat(s61, "area_guard", thr=calibrate_area(P21, tilt=1.2))
+check("area calibrated over 0.9 rad of tilt: smaller retreat, converges",
+      r09["conv"] and r09["dist"] < 1.5, "(%.2f m)" % r09["dist"])
+check("  over 1.2 rad: stops firing and aborts with the partition",
+      r12["aborted"] and r12["off"] == 0)
+_Pm = ring()
+_Pm[:, 1] *= 0.5
+_m12 = (_psig(project(transform_points(make_pose(t=np.array([0.0, 0.0, 0.6])),
+                                       _Pm)))
+        / calibrate_area(ring(), tilt=1.2))
+check("  and that range blinds it further to mild 3D collapse",
+      _m12 > 2.0, "(c=0.5 margin %.2fx, 1.19x at the shipped range)" % _m12)
+
+# Detector noise is enough to trigger it on the EXACT start.
+rn = {r: _retreat(_start(), r, steps=600,
+                  noise_rng=np.random.default_rng(7))
+      for r in ("sigma6", "area_guard")}
+check("0.5 px noise on the exact start: area guard switches and retreats",
+      rn["area_guard"]["off"] > 100 and rn["area_guard"]["dist"] > 1.5,
+      "(%d steps off, %.2f m)" % (rn["area_guard"]["off"],
+                                  rn["area_guard"]["dist"]))
+check("  sigma_6 under the same noise: no switch, no retreat",
+      rn["sigma6"]["off"] == 0 and rn["sigma6"]["dist"] < 0.82)
+
+
+def _jitter(P, pose, thr_a, thr_s, trials=5000, px=2.0):
+    """Mean |change| of each statistic under per-point noise, % of threshold."""
+    rr = np.random.default_rng(0)
+    Pc = transform_points(pose, P)
+    s_, Z_ = project(Pc), Pc[:, 2]
+    a_0, s_0 = _psig(s_), sigma_6(interaction_matrix(s_, Z_))
+    da = ds = 0.0
+    for _ in range(trials):
+        sn = s_ + rr.normal(0.0, px / FOCAL_PX, s_.shape)
+        da += abs(_psig(sn) - a_0)
+        ds += abs(sigma_6(interaction_matrix(sn, Z_)) - s_0)
+    return 100 * da / trials / thr_a, 100 * ds / trials / thr_s
+
+
+ja_sq, js_sq = _jitter(P21, CS21, A21, S21)
+ja_rg, js_rg = _jitter(ring(), make_pose(t=np.array([0.0, 0.0, 0.6])),
+                       A_THR20, S_THR20)
+check("the area STATISTIC is steadier: 2 px moves sigma_6 >2x as much",
+      js_sq > 2 * ja_sq and js_rg > 2 * ja_rg,
+      "(%% of threshold. square: area %.2f vs sigma_6 %.2f; "
+      "ring: %.2f vs %.2f)" % (ja_sq, js_sq, ja_rg, js_rg))
 
 # ----------------------------------------------------------------------
 print("\n%d/%d passed" % (sum(_results), len(_results)))

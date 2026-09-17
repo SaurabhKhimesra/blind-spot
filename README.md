@@ -26,7 +26,7 @@ the standard fix for the famous failure makes two of the others worse. That is
 a crooked insertion, a tripped safety stop, or a scrapped part.
 
 **This is a simulation study of control laws, not a robot demo.** There is no
-hardware and no arm: it is a free-flying camera, 153 regression tests, and 16
+hardware and no arm: it is a free-flying camera, 170 regression tests, and 16
 finite-difference checks. The control results are derived with exact feature
 positions, then re-run against a **rendered MuJoCo camera with a real OpenCV
 ArUco detector** — which agrees with exact projection to 0.095 px and
@@ -39,10 +39,14 @@ does, and a one-line hand-written rule closes the gap. **No learned policy is
 needed here**, which is the opposite of what this project set out to show.
 
 Two signals can drive that switch, and neither dominates. The cheap one — the
-area of the partition's own substitute features — matched the spectral one on
-every benchmark case and is more robust to detector noise. But it cannot tell
-a degenerate target from a healthy one seen at a steep angle, where the
-spectral signal σ₆ can (dead claim 4 below, revised after the Gazebo work).
+area of the partition's own substitute features — matched the spectral one,
+σ₆, on every benchmark case. But it cannot tell a degenerate target from a
+healthy one seen at a steep angle, and the benchmark's retreat start is
+exactly symmetric, which hides what that costs. Start it up to 2 cm or 3° off
+and the partitioned law swings the camera nearly edge-on: the area guard reads
+that as collapse and backs away to 2.0–2.9 m in every run, while σ₆ never
+switches and goes fully edge-on with the partition in 3 runs of 100. Dead
+claim 4 has the numbers.
 
 ![Four failure modes and which controllers survive each](fig2_failure_modes.png)
 
@@ -219,6 +223,12 @@ The rclpy node is a thin wrapper over it.
 measures differ.** Cells are comparable down a column, never across one.
 
 - *Retreat* and *collapsed* are judged on **convergence** (final ‖e‖ < 1e-4).
+- The *retreat* start is an **exact** rotation about the optical axis, a
+  symmetric special case: the partition's xy command is exactly zero there.
+  From a start up to 2 cm or 3° off, the partition-based rows still avoid the
+  retreat but swing the view nearly edge-on (fully, losing the target, in 3 of
+  100 runs at 180°), and the area guard converges every time but backs away
+  to 2.02–2.88 m. See dead claim 4.
 - *Dropout* and *2 features* are judged on the **velocity spike**: peak
   commanded ‖v‖ inside the degradation window (steps 30–90) over that
   controller's own ‖v‖ at step 29.
@@ -238,13 +248,13 @@ calibrated per target — never tuned by hand, never fitted on a degraded run.
 
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python tests.py                                    # 153/153 and 16/16
+.venv/bin/python tests.py                                    # 170/170 and 16/16
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
 
 `test_blindspot.py` (34 more) covers the packaged API and the ROS bridge.
 
-`tests.py` must print **153/153** and `fd_check.py` **16/16**. `fd_check.py` verifies every
+`tests.py` must print **170/170** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
 conventions — two sign bugs in this repo were found that way and neither would
 have been caught by inspection.
@@ -293,12 +303,20 @@ polygon *area* — an aggregate over every visible point — so independent
 per-point detector noise largely cancels inside it rather than propagating.
 It is inherently smoothed, with no filter added. Measured: 2 px of per-point
 noise moves the statistic by **0.33%** of its threshold on the 4-point square
-and **0.73%** on the 6-point ring. Across all four cases at 0, 0.5 and 2 px of
+and **0.76%** on the 6-point ring. Across all four cases at 0, 0.5 and 2 px of
 feature noise the switch produces **no spurious flips at 0 and 0.5 px, and one
 isolated single-step blip at 2 px** on the retreat case only; every other
-transition is a sustained response to a real dip. That is a second argument
-for the area guard over the spectral rule, which reads σ₆ off a single
+transition is a sustained response to a real dip. That was offered as a second
+argument for the area guard over the spectral rule, which reads σ₆ off a single
 smallest singular value and has no such averaging.
+
+**Measured since: it holds for the statistic, not for the switch.** The same
+2 px moves σ₆ by **1.03%** of its threshold on the square and **2.35%** on the
+ring, about 3× as much. But in closed loop σ₆ made no noise-induced switch on
+any of the four cases, and the area guard's sustained switch on the retreat
+case at 0.5 px is a real dip in *area*, not in target health: noise breaks the
+start's symmetry and triggers the orbit false positive in dead claim 4 (123
+steps without the partition, camera backed away to 1.80 m).
 
 **Hysteresis was tested and rejected, not omitted.** It suppresses that one
 blip, but it delays *both* edges, and the edge that matters is dropping the
@@ -328,24 +346,58 @@ default is no hysteresis. The parameter exists (`hysteresis=` in
    | target collapsed in 3D, c = 0.05 | 0.38× — fires | 0.07× — fires |
 
    The area guard cannot distinguish a target that is geometrically
-   degenerate from one that is merely seen at a steep angle — both collapse
-   the projected polygon identically. σ₆ can, and in the direction physics
+   degenerate from one that is merely seen at a steep angle — both shrink the
+   projected polygon. σ₆ can, and in the direction physics
    predicts: a face-on planar target is the *worst*-conditioned IBVS case,
    because every point sits at one depth and depth motion is hard to tell from
    rotation. Tilting it adds depth variation and σ₆ rises about 15× while the
    projected area shrinks. σ₆ also catches a milder 3D collapse that area
    misses entirely.
 
-   **What this does not show is harm.** The false positive fires on every one
+   **On a tilting target the false positive is free.** It fires on every one
    of 16 tilt onset/speed combinations, yet peak commanded velocity was
    identical under partition-always, area guard and σ₆ in 15 of them (the
-   16th differed by 5%). On a healthy target the two control laws compute
-   nearly the same twist, so switching between them costs almost nothing.
+   16th differed by 5%). With little error left to correct, the two control
+   laws compute nearly the same twist.
 
-   So the honest ledger is: **area is cheaper and more noise-robust; σ₆ is
-   the more faithful signal.** Neither dominates. The spectrum *is*
-   load-bearing — just not on any case the original suite contained, which is
-   the same lesson as the collapsed-target case that counting could not see.
+   **On the retreat case it is not free — and not simply wrong either.** The
+   Results table starts that case from an exact rotation about the optical
+   axis, where the partition's xy command is exactly zero by symmetry. Any
+   start error breaks the symmetry, and *all* of that command lands in the two
+   weakest directions of L_xy, about 130× below the strongest: an orbit about
+   the target (vx = −Z·wy, vy = +Z·wx), the motion that barely moves the
+   image. The view swings nearly edge-on. Over 100 random starts per angle
+   (lateral ≤ 2 cm, tilt ≤ 3° per axis, exact features):
+
+   | 180° start | switched | converged | lost target edge-on | furthest | peak tilt, median / max |
+   |---|---|---|---|---|---|
+   | partition always on | 0 | 97 | 3 | 0.80–0.81 m | 84° / 89° |
+   | σ₆ guard | 0 | 97 | 3 | 0.80–0.81 m | 84° / 89° |
+   | area guard | 100 | 100 | 0 | 2.02–2.88 m | 76° / 78° |
+
+   At 150° and 170° nothing loses the target, and the area guard backs away
+   to 1.23–1.50 m and 1.71–2.24 m. σ₆ is right that the target and the matrix
+   are healthy, and it inherits every orbit, including the three that go fully
+   edge-on. The area guard is wrong about *why* the view is shrinking and its
+   fallback is the law that retreats, but it is the only one of the three that
+   never lost the target.
+
+   Calibration cannot buy both. Widening the tilt range the area threshold is
+   drawn from shrinks the retreat (2.59 m → 1.26 m at 0.9 rad, on one of the
+   three edge-on starts) until, at 1.2 rad, the guard stops firing and loses
+   the target with the partition; that range also blinds it further to mild
+   collapse (c = 0.5 margin 1.19× → 2.46×). Detector noise alone triggers the
+   orbit from the exact start: at 0.5 px the area guard drops the partition
+   for 123–125 steps and backs away to 1.80–2.03 m over five noise seeds,
+   while σ₆ does not switch.
+
+   So the honest ledger: **σ₆ is the faithful signal of whether the geometry
+   is degenerate. The area guard has the steadier statistic, and it is the one
+   rule that reacts to a view going edge-on — for the wrong reason, at the
+   cost of a retreat.** Neither dominates. The spectrum *is* load-bearing —
+   just not on any case the original suite contained, which is the same
+   lesson as the collapsed-target case that counting could not see. Locked in
+   `tests.py` sections 20 and 21.
 
 5. **"The collapsed-target velocity spike is evidence for switching."** —
    Killed by τ arithmetic: the τ=1e-3 threshold is **98.78%** of σ_min, and
@@ -602,7 +654,7 @@ land under a pixel apart.
 | `partitioned.py` | Partitioned IBVS (Corke & Hutchinson 2001); `rel_tau=1e-3` gives the combined controller |
 | `truncated.py` | Adaptive-rank pseudo-inverse and the truncation-only controller |
 | `switched.py` | The runtime switch: `count`, `rank_margin`, `sigma6`, `sigma6_n`, `area_guard`, `alpha_guard`, and the healthy-pose calibration |
-| `tests.py` | 153 regression tests. Run before and after every change |
+| `tests.py` | 170 regression tests. Run before and after every change |
 | `fd_check.py` | 16 finite-difference checks of every derivative, sign, and null space relied on |
 | `compare.py` | Regenerates the results table |
 | `tau_sweep.py` | τ sensitivity and calibration-percentile sensitivity |
