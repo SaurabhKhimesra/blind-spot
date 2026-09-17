@@ -33,14 +33,22 @@ t=21.6   RIGHT (guard ON)   |v| 1.231   peak 2.561
 The spike is on the GUARDED cell, exactly at the moment the guard switches
 laws. The unguarded cell stays smooth.
 
-The cause is a scenario error, not a code bug. In the numpy study the
-"collapsed target" was collapsed **in 3D** (`P[:,1] *= 0.02`), so the
-interaction matrix was genuinely rank deficient and dropping the partition
-genuinely helped. **Tilting a flat panel is not that**: the six dots remain a
-perfect hexagon in space and only their projection foreshortens. The
-interaction matrix is healthy, so the partition was never in trouble, and
-switching away from it mid-motion is a pure discontinuity between two control
-laws.
+**CORRECTED 2026-09-17.** The paragraph that stood here claimed the spike
+was *caused by the switch* - "a pure discontinuity between two control laws".
+That was attributed too quickly and did not survive measurement.
+
+What holds: tilting a flat panel is not a 3D collapse. The six dots stay a
+perfect hexagon in space and only the projection foreshortens, so the area
+guard fires while the interaction matrix is actually HEALTHIER (sigma_6 rises
+about 15x with tilt).
+
+What does not hold: that switching laws caused the spike. Reproduced in numpy
+across 16 tilt onset/speed combinations, the area guard switched every time
+yet peak commanded velocity was identical under all three rules in 15 of 16
+(the 16th differed by 5%). On a healthy target the two laws compute nearly the
+same twist. The single arm spike is unreproduced; the likelier culprit is
+perception, since at 66 degrees the dots are thin ellipses and blob centroids
+get noisy. Locked in tests.py section 20.
 
 ## The finding this produced, which is worth more than the video
 
@@ -55,7 +63,9 @@ found this: a free-flying camera never had a reason to view a healthy target
 that obliquely. This belongs in the README as a dead claim or a limits entry,
 with the numbers above.
 
-Not yet written up. Do that first on resume.
+Written up 2026-09-17 as a revision of dead claim 4, locked in tests.py
+section 20. It does more than add a limit: it partly revives the claim that
+the spectrum matters, which the four-case suite had wrongly killed.
 
 ## Two paths to a dramatic, honest clip
 

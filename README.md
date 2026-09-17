@@ -26,7 +26,7 @@ the standard fix for the famous failure makes two of the others worse. That is
 a crooked insertion, a tripped safety stop, or a scrapped part.
 
 **This is a simulation study of control laws, not a robot demo.** There is no
-hardware and no arm: it is a free-flying camera, 143 regression tests, and 16
+hardware and no arm: it is a free-flying camera, 153 regression tests, and 16
 finite-difference checks. The control results are derived with exact feature
 positions, then re-run against a **rendered MuJoCo camera with a real OpenCV
 ArUco detector** — which agrees with exact projection to 0.095 px and
@@ -35,10 +35,14 @@ limits, dynamics, contact) is the next phase, not a finished one.
 
 Image-based visual servoing has four distinct ways to go blind, and no fixed
 control law survives all four. Switching the 2001 partition *off at runtime*
-does — and the signal that decides the switch should be the health of the
-partition's own substitute features, not the spectrum of the interaction
-matrix. A one-line hand-written rule closes the gap. **No learned policy is
+does, and a one-line hand-written rule closes the gap. **No learned policy is
 needed here**, which is the opposite of what this project set out to show.
+
+Two signals can drive that switch, and neither dominates. The cheap one — the
+area of the partition's own substitute features — matched the spectral one on
+every benchmark case and is more robust to detector noise. But it cannot tell
+a degenerate target from a healthy one seen at a steep angle, where the
+spectral signal σ₆ can (dead claim 4 below, revised after the Gazebo work).
 
 ![Four failure modes and which controllers survive each](fig2_failure_modes.png)
 
@@ -234,13 +238,13 @@ calibrated per target — never tuned by hand, never fitted on a degraded run.
 
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python tests.py                                    # 143/143 and 16/16
+.venv/bin/python tests.py                                    # 153/153 and 16/16
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
 
 `test_blindspot.py` (34 more) covers the packaged API and the ROS bridge.
 
-`tests.py` must print **143/143** and `fd_check.py` **16/16**. `fd_check.py` verifies every
+`tests.py` must print **153/153** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
 conventions — two sign bugs in this repo were found that way and neither would
 have been caught by inspection.
@@ -306,10 +310,42 @@ default is no hysteresis. The parameter exists (`hysteresis=` in
 `run_switched`) so the result can be re-checked rather than taken on trust.
 
 4. **"The switching decision needs the interaction-matrix spectrum."** —
-   Killed by the area guard **matching σ₆ on all four cases** (and beating it
-   on dropout, 0.5× vs 1.1×) using no spectrum at all. The collapsed failure
-   is one the partition *introduces*, so guarding the partition's own inputs
-   is the honest framing. The spectral story is not load-bearing.
+   *Killed, then partly revived.* On the four benchmark cases the area guard
+   **matched σ₆ everywhere** (and beat it on dropout, 0.5× vs 1.1×) with no
+   spectrum at all, and this entry originally concluded the spectral story
+   was not load-bearing.
+
+   **That conclusion was a property of the suite, not of the signals.** None
+   of the four cases separates them. The Gazebo arm work found one that does:
+   a healthy planar target viewed obliquely.
+
+   | | area margin | σ₆ margin |
+   |---|---|---|
+   | healthy target, face-on | 1.69× | 1.88× |
+   | healthy target, 70° | **0.99× — fires** | 27.01× — silent |
+   | healthy target, 75° | **0.86× — fires** | 28.72× — silent |
+   | target collapsed in 3D, c = 0.5 | 1.19× — **misses it** | **0.74× — fires** |
+   | target collapsed in 3D, c = 0.05 | 0.38× — fires | 0.07× — fires |
+
+   The area guard cannot distinguish a target that is geometrically
+   degenerate from one that is merely seen at a steep angle — both collapse
+   the projected polygon identically. σ₆ can, and in the direction physics
+   predicts: a face-on planar target is the *worst*-conditioned IBVS case,
+   because every point sits at one depth and depth motion is hard to tell from
+   rotation. Tilting it adds depth variation and σ₆ rises about 15× while the
+   projected area shrinks. σ₆ also catches a milder 3D collapse that area
+   misses entirely.
+
+   **What this does not show is harm.** The false positive fires on every one
+   of 16 tilt onset/speed combinations, yet peak commanded velocity was
+   identical under partition-always, area guard and σ₆ in 15 of them (the
+   16th differed by 5%). On a healthy target the two control laws compute
+   nearly the same twist, so switching between them costs almost nothing.
+
+   So the honest ledger is: **area is cheaper and more noise-robust; σ₆ is
+   the more faithful signal.** Neither dominates. The spectrum *is*
+   load-bearing — just not on any case the original suite contained, which is
+   the same lesson as the collapsed-target case that counting could not see.
 
 5. **"The collapsed-target velocity spike is evidence for switching."** —
    Killed by τ arithmetic: the τ=1e-3 threshold is **98.78%** of σ_min, and
@@ -566,7 +602,7 @@ land under a pixel apart.
 | `partitioned.py` | Partitioned IBVS (Corke & Hutchinson 2001); `rel_tau=1e-3` gives the combined controller |
 | `truncated.py` | Adaptive-rank pseudo-inverse and the truncation-only controller |
 | `switched.py` | The runtime switch: `count`, `rank_margin`, `sigma6`, `sigma6_n`, `area_guard`, `alpha_guard`, and the healthy-pose calibration |
-| `tests.py` | 143 regression tests. Run before and after every change |
+| `tests.py` | 153 regression tests. Run before and after every change |
 | `fd_check.py` | 16 finite-difference checks of every derivative, sign, and null space relied on |
 | `compare.py` | Regenerates the results table |
 | `tau_sweep.py` | τ sensitivity and calibration-percentile sensitivity |

@@ -889,5 +889,104 @@ check("so the stall is tau tuning, not structure",
       % (pose_err(sw_tuned, cs), pose_err(sw_default, cs)))
 
 # ----------------------------------------------------------------------
+# 20. The area guard cannot tell obliquity from degeneracy; sigma_6 can.
+#     Surfaced by the Gazebo arm demo, reproduced and locked here in numpy.
+#     This revises dead claim 4: the spectrum is not decoration, the original
+#     four-case suite simply contained no case that separates the two signals.
+# ----------------------------------------------------------------------
+print("\n--- obliquity vs degeneracy: where the two signals part ways ---")
+
+from ibvs_core import rot_y as _rot_y  # noqa: E402
+from partitioned import polygon_sigma as _psig  # noqa: E402
+
+A_THR20 = calibrate_area(ring())
+S_THR20 = calibrate_sigma6(ring())
+
+
+def _margins(P, tilt_deg, Zc=0.6):
+    cT = make_pose(R=_rot_y(np.deg2rad(tilt_deg)), t=np.array([0.0, 0.0, Zc]))
+    Pc = transform_points(cT, P)
+    s_ = project(Pc)
+    return (_psig(s_) / A_THR20,
+            sigma_6(interaction_matrix(s_, Pc[:, 2])) / S_THR20)
+
+
+a0, s0 = _margins(ring(), 0)
+for deg in (70, 75):
+    am, sm = _margins(ring(), deg)
+    check("healthy target at %d deg: area guard FIRES (false positive)" % deg,
+          am < 1.0, "(area margin %.2fx)" % am)
+    check("  same view: sigma_6 stays silent" , sm > 1.0,
+          "(sigma_6 margin %.2fx)" % sm)
+a70, s70 = _margins(ring(), 70)
+check("tilting a healthy planar target IMPROVES conditioning",
+      s70 > 5 * s0,
+      "(sigma_6 margin %.2fx face-on -> %.2fx at 70 deg; area %.2fx -> %.2fx)"
+      % (s0, s70, a0, a70))
+
+P_mild = ring()
+P_mild[:, 1] *= 0.5
+am, sm = _margins(P_mild, 0)
+check("mild 3D collapse (c=0.5): sigma_6 fires, area misses it",
+      sm < 1.0 <= am, "(sigma_6 %.2fx, area %.2fx)" % (sm, am))
+
+P_hard = ring()
+P_hard[:, 1] *= 0.05
+am, sm = _margins(P_hard, 0)
+check("strong 3D collapse (c=0.05): both fire",
+      am < 1.0 and sm < 1.0, "(area %.2fx, sigma_6 %.2fx)" % (am, sm))
+
+# ...and the false positive is, measured, harmless for a free-flying camera.
+# A spike seen once in the Gazebo arm demo was attributed to the switch and
+# did NOT reproduce: across 16 onset/speed combinations peak |v| was identical
+# under all three rules in 15. Locked so nobody reintroduces the claim.
+from partitioned import line_alpha as _la, wrap as _wrap  # noqa: E402
+from partitioned import Z_COLS as _ZC, XY_COLS as _XC  # noqa: E402
+
+
+def _tilt_servo(rule, onset=80, ramp=40, steps=420):
+    cT = make_pose(t=np.array([0.04, -0.03, 0.75]))
+    goal = make_pose(t=np.array([0.0, 0.0, 0.6]))
+    peak, sw, prev = 0.0, 0, None
+    for k in range(steps):
+        ang = np.deg2rad(75) * float(np.clip((k - onset) / ramp, 0, 1))
+        P = ring() @ _rot_y(ang).T
+        Pc = transform_points(cT, P)
+        s_ = project(Pc)
+        ss = project(transform_points(goal, P))
+        e_ = (s_ - ss).reshape(-1)
+        L_ = interaction_matrix(s_, Pc[:, 2])
+        on = (True if rule == "always" else
+              _psig(s_) > A_THR20 if rule == "area" else
+              sigma_6(L_) > S_THR20)
+        if prev is not None and on != prev:
+            sw += 1
+        prev = on
+        if on:
+            vz = 0.6 * np.log(_psig(ss) / _psig(s_))
+            wz = 0.6 * _wrap(_la(s_) - _la(ss))
+            vxy = -pinv_truncated(L_[:, _XC], 1e-3)[0] @ (
+                0.5 * e_ + L_[:, _ZC] @ [vz, wz])
+            v_ = np.zeros(6)
+            v_[_XC] = vxy
+            v_[2], v_[5] = vz, wz
+        else:
+            v_ = -0.5 * pinv_truncated(L_, 1e-3)[0] @ e_
+        if k >= onset - 5:
+            peak = max(peak, float(np.linalg.norm(v_)))
+        cT = se3_exp(-v_ * 0.033) @ cT
+    return peak, sw
+
+
+pk = {r: _tilt_servo(r) for r in ("always", "area", "sigma6")}
+check("area guard switches on the tilting healthy target",
+      pk["area"][1] >= 1, "(%d switch)" % pk["area"][1])
+check("sigma_6 never switches on it", pk["sigma6"][1] == 0)
+check("but the false positive costs nothing: peak |v| within 10%",
+      abs(pk["area"][0] - pk["always"][0]) <= 0.10 * pk["always"][0],
+      "(%.3f area vs %.3f partition-always vs %.3f sigma_6)"
+      % (pk["area"][0], pk["always"][0], pk["sigma6"][0]))
+
+# ----------------------------------------------------------------------
 print("\n%d/%d passed" % (sum(_results), len(_results)))
 raise SystemExit(0 if all(_results) else 1)
