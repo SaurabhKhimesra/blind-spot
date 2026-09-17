@@ -7,7 +7,7 @@ Written 2026-09-16 so the arm work can be picked up cold. Updated 2026-09-17.
 Everything is committed and pushed to
 https://github.com/SaurabhKhimesra/blind-spot
 
-- `tests.py` 170/170, `fd_check.py` 16/16, `test_blindspot.py` 34/34
+- `tests.py` 177/177, `fd_check.py` 16/16, `test_blindspot.py` 34/34
 - ROS 2 **Lyrical** at `/opt/ros/lyrical` (apt). The RoboStack conda env in
   `~/micromamba/envs/rosguard` is now redundant and can be deleted (~6.4 GB).
 - The Gazebo arm demo runs with two scripts, no env setup:
@@ -94,7 +94,31 @@ and the Results notes, locked in tests.py section 21.
    sigma_6, or both, is a design change.
 3. The video path below.
 
-## Two paths to a dramatic, honest clip
+## Resolved 2026-09-18: the clip exists, path B
+
+Built as the folding part: each panel is two flaps on a hinge, both fold 85
+deg in 1 s away from the arm, and the markers collapse toward the hinge line
+in 3D with all six still visible. This is the case the partition cannot
+survive - it reads the shrinking area as distance and drives at the part.
+
+- Gazebo, one run: unguarded trips the shared protective stop at 16.2 cm,
+  1.46 s into the fold; guarded fires at 0.96 s and holds 22-24 cm.
+- numpy, same law imported from the demo package: 6.8 cm and markers lost vs
+  18 cm held; plain IBVS holds 22.5 cm; sigma_6 never fires (1.29x).
+- The guard only wins a race: 75 deg within 1 s, 80 within 1.5, 85 within 2.
+  Slower folds are masked because the lunge restores the area.
+- Not shown in the act, and in the README limits: the fallback creeps while
+  the part is held folded, and re-enabling the partition mid-unfold spiked to
+  6.05 and lost the target.
+
+Files: worlds/panel_fold.sdf, blindspot_arm/{fold_node,law,detect,record_node}.py,
+launch/fold.launch.py, run_fold_demo.sh, arm_clip.py, docs/folding_part.mp4,
+tests.py section 22. Recording runs live outside the repo in ~/blindspot_clip.
+
+Still open, and mine to decide, not Claude's: the README headline, and
+whether the package should offer sigma_6 as well as the area guard.
+
+## The two paths that were considered
 
 **A - two-feature occlusion.** Occlude 4 of 6 markers. The numpy study
 measured partitioned 288x against guard 0.5x, so the effect is huge and real

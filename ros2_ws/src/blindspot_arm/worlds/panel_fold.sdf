@@ -1,0 +1,277 @@
+<?xml version="1.0"?>
+<sdf version="1.10">
+  <world name="blindspot">
+    <physics name="fast" type="ignored">
+      <max_step_size>0.002</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <scene>
+      <background>0.10 0.11 0.13 1</background>
+      <ambient>0.45 0.45 0.48 1</ambient>
+      <grid>false</grid>
+    </scene>
+
+    <light type="directional" name="sun">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.95 0.95 0.95 1</diffuse>
+      <direction>-0.4 0.1 -0.9</direction>
+    </light>
+    <light type="point" name="fill">
+      <pose>0.3 0 0.9 0 0 0</pose>
+      <diffuse>0.7 0.7 0.7 1</diffuse>
+      <attenuation><range>6</range><linear>0.25</linear></attenuation>
+    </light>
+    <!-- the same fill light for the right cell, 2.5 m over, so both cells are
+         lit identically and the side-by-side shots match -->
+    <light type="point" name="fill_right">
+      <pose>0.3 2.5 0.9 0 0 0</pose>
+      <diffuse>0.7 0.7 0.7 1</diffuse>
+      <attenuation><range>6</range><linear>0.25</linear></attenuation>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="c"><geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry></collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry>
+          <material><ambient>0.13 0.14 0.16 1</ambient><diffuse>0.17 0.18 0.21 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+
+    <!-- LEFT cell. The panel is two flaps on a horizontal hinge. Mid-run both
+         flaps fold AWAY from the arm, so the six markers collapse toward the
+         hinge line IN 3D while every one of them stays in view. -->
+    <model name="panel_left">
+      <pose>0.636 -0.250 0.359 0 0 -1.5708</pose>
+      <link name="post">
+        <inertial><mass>50</mass><inertia><ixx>1</ixx><iyy>1</iyy><izz>1</izz></inertia></inertial>
+        <visual name="v">
+          <pose>0.16 0 -0.21 0 0 0</pose>
+          <geometry><box><size>0.03 0.03 0.42</size></box></geometry>
+          <material><ambient>0.25 0.26 0.3 1</ambient><diffuse>0.3 0.31 0.35 1</diffuse></material>
+        </visual>
+        <!-- light backdrop, far enough back (11 cm) to clear the folded flaps,
+             so a dark marker never sits on a dark background -->
+        <visual name="backdrop">
+          <pose>0.11 0 0.0 0 0 0</pose>
+          <geometry><box><size>0.004 0.60 0.45</size></box></geometry>
+          <material><ambient>0.78 0.79 0.82 1</ambient><diffuse>0.82 0.83 0.86 1</diffuse></material>
+        </visual>
+        <visual name="hinge">
+          <geometry><box><size>0.006 0.17 0.006</size></box></geometry>
+          <material><ambient>0.75 0.76 0.8 1</ambient><diffuse>0.8 0.81 0.85 1</diffuse></material>
+        </visual>
+        <visual name="socket">
+          <pose>-0.0035 0 0 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.0045</radius><length>0.001</length></cylinder></geometry>
+          <material><ambient>0.45 0.65 0.9 1</ambient><diffuse>0.5 0.7 0.95 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="flap_up">
+        <gravity>false</gravity>
+        <inertial><mass>0.2</mass><inertia><ixx>5e-4</ixx><iyy>5e-4</iyy><izz>5e-4</izz></inertia></inertial>
+        <visual name="face">
+          <pose>0 0 0.0455 0 0 0</pose>
+          <geometry><box><size>0.006 0.17 0.083</size></box></geometry>
+          <material><ambient>0.93 0.93 0.95 1</ambient><diffuse>0.98 0.98 1 1</diffuse></material>
+        </visual>
+        <visual name="dot0">
+          <pose>0 0.04908 0.00954 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot1">
+          <pose>0 0.01628 0.04728 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot2">
+          <pose>0 -0.03280 0.03774 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+      </link>
+      <link name="flap_dn">
+        <gravity>false</gravity>
+        <inertial><mass>0.2</mass><inertia><ixx>5e-4</ixx><iyy>5e-4</iyy><izz>5e-4</izz></inertia></inertial>
+        <visual name="face">
+          <pose>0 0 -0.0455 0 0 0</pose>
+          <geometry><box><size>0.006 0.17 0.083</size></box></geometry>
+          <material><ambient>0.93 0.93 0.95 1</ambient><diffuse>0.98 0.98 1 1</diffuse></material>
+        </visual>
+        <visual name="dot3">
+          <pose>0 -0.04908 -0.00954 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot4">
+          <pose>0 -0.01628 -0.04728 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot5">
+          <pose>0 0.03280 -0.03774 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+      </link>
+      <joint name="anchor" type="fixed"><parent>world</parent><child>post</child></joint>
+      <!-- positive command folds both flaps away from the arm -->
+      <joint name="fold_up" type="revolute">
+        <parent>post</parent><child>flap_up</child>
+        <axis><xyz>0 1 0</xyz><limit><lower>-0.1</lower><upper>1.6</upper><effort>50</effort><velocity>6</velocity></limit></axis>
+      </joint>
+      <joint name="fold_dn" type="revolute">
+        <parent>post</parent><child>flap_dn</child>
+        <axis><xyz>0 -1 0</xyz><limit><lower>-0.1</lower><upper>1.6</upper><effort>50</effort><velocity>6</velocity></limit></axis>
+      </joint>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>fold_up</joint_name><topic>/fold_left</topic>
+        <use_velocity_commands>true</use_velocity_commands><p_gain>12</p_gain><i_gain>0</i_gain><d_gain>0</d_gain>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>fold_dn</joint_name><topic>/fold_left</topic>
+        <use_velocity_commands>true</use_velocity_commands><p_gain>12</p_gain><i_gain>0</i_gain><d_gain>0</d_gain>
+      </plugin>
+    </model>
+    <!-- RIGHT cell. The panel is two flaps on a horizontal hinge. Mid-run both
+         flaps fold AWAY from the arm, so the six markers collapse toward the
+         hinge line IN 3D while every one of them stays in view. -->
+    <model name="panel_right">
+      <pose>0.636 2.250 0.359 0 0 -1.5708</pose>
+      <link name="post">
+        <inertial><mass>50</mass><inertia><ixx>1</ixx><iyy>1</iyy><izz>1</izz></inertia></inertial>
+        <visual name="v">
+          <pose>0.16 0 -0.21 0 0 0</pose>
+          <geometry><box><size>0.03 0.03 0.42</size></box></geometry>
+          <material><ambient>0.25 0.26 0.3 1</ambient><diffuse>0.3 0.31 0.35 1</diffuse></material>
+        </visual>
+        <!-- light backdrop, far enough back (11 cm) to clear the folded flaps,
+             so a dark marker never sits on a dark background -->
+        <visual name="backdrop">
+          <pose>0.11 0 0.0 0 0 0</pose>
+          <geometry><box><size>0.004 0.60 0.45</size></box></geometry>
+          <material><ambient>0.78 0.79 0.82 1</ambient><diffuse>0.82 0.83 0.86 1</diffuse></material>
+        </visual>
+        <visual name="hinge">
+          <geometry><box><size>0.006 0.17 0.006</size></box></geometry>
+          <material><ambient>0.75 0.76 0.8 1</ambient><diffuse>0.8 0.81 0.85 1</diffuse></material>
+        </visual>
+        <visual name="socket">
+          <pose>-0.0035 0 0 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.0045</radius><length>0.001</length></cylinder></geometry>
+          <material><ambient>0.45 0.65 0.9 1</ambient><diffuse>0.5 0.7 0.95 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="flap_up">
+        <gravity>false</gravity>
+        <inertial><mass>0.2</mass><inertia><ixx>5e-4</ixx><iyy>5e-4</iyy><izz>5e-4</izz></inertia></inertial>
+        <visual name="face">
+          <pose>0 0 0.0455 0 0 0</pose>
+          <geometry><box><size>0.006 0.17 0.083</size></box></geometry>
+          <material><ambient>0.93 0.93 0.95 1</ambient><diffuse>0.98 0.98 1 1</diffuse></material>
+        </visual>
+        <visual name="dot0">
+          <pose>0 0.04908 0.00954 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot1">
+          <pose>0 0.01628 0.04728 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot2">
+          <pose>0 -0.03280 0.03774 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+      </link>
+      <link name="flap_dn">
+        <gravity>false</gravity>
+        <inertial><mass>0.2</mass><inertia><ixx>5e-4</ixx><iyy>5e-4</iyy><izz>5e-4</izz></inertia></inertial>
+        <visual name="face">
+          <pose>0 0 -0.0455 0 0 0</pose>
+          <geometry><box><size>0.006 0.17 0.083</size></box></geometry>
+          <material><ambient>0.93 0.93 0.95 1</ambient><diffuse>0.98 0.98 1 1</diffuse></material>
+        </visual>
+        <visual name="dot3">
+          <pose>0 -0.04908 -0.00954 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot4">
+          <pose>0 -0.01628 -0.04728 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+        <visual name="dot5">
+          <pose>0 0.03280 -0.03774 0 0 0</pose>
+          <geometry><sphere><radius>0.006</radius></sphere></geometry>
+          <material><ambient>0.02 0.02 0.02 1</ambient><diffuse>0.04 0.04 0.04 1</diffuse><specular>0.05 0.05 0.05 1</specular></material>
+        </visual>
+      </link>
+      <joint name="anchor" type="fixed"><parent>world</parent><child>post</child></joint>
+      <!-- positive command folds both flaps away from the arm -->
+      <joint name="fold_up" type="revolute">
+        <parent>post</parent><child>flap_up</child>
+        <axis><xyz>0 1 0</xyz><limit><lower>-0.1</lower><upper>1.6</upper><effort>50</effort><velocity>6</velocity></limit></axis>
+      </joint>
+      <joint name="fold_dn" type="revolute">
+        <parent>post</parent><child>flap_dn</child>
+        <axis><xyz>0 -1 0</xyz><limit><lower>-0.1</lower><upper>1.6</upper><effort>50</effort><velocity>6</velocity></limit></axis>
+      </joint>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>fold_up</joint_name><topic>/fold_right</topic>
+        <use_velocity_commands>true</use_velocity_commands><p_gain>12</p_gain><i_gain>0</i_gain><d_gain>0</d_gain>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>fold_dn</joint_name><topic>/fold_right</topic>
+        <use_velocity_commands>true</use_velocity_commands><p_gain>12</p_gain><i_gain>0</i_gain><d_gain>0</d_gain>
+      </plugin>
+    </model>
+    <model name="cine_left">
+      <static>true</static>
+      <pose>1.5127 0.1548 0.5998 0 0.2443 -2.8274</pose>
+      <link name="link">
+        <sensor name="cine_left" type="camera">
+          <camera>
+            <horizontal_fov>0.6200</horizontal_fov>
+            <image><width>1280</width><height>720</height><format>R8G8B8</format></image>
+            <clip><near>0.02</near><far>30</far></clip>
+          </camera>
+          <always_on>1</always_on>
+          <update_rate>60</update_rate>
+          <topic>cine_left</topic>
+        </sensor>
+      </link>
+    </model>
+    <model name="cine_right">
+      <static>true</static>
+      <pose>1.5127 2.6548 0.5998 0 0.2443 -2.8274</pose>
+      <link name="link">
+        <sensor name="cine_right" type="camera">
+          <camera>
+            <horizontal_fov>0.6200</horizontal_fov>
+            <image><width>1280</width><height>720</height><format>R8G8B8</format></image>
+            <clip><near>0.02</near><far>30</far></clip>
+          </camera>
+          <always_on>1</always_on>
+          <update_rate>60</update_rate>
+          <topic>cine_right</topic>
+        </sensor>
+      </link>
+    </model>
+  </world>
+</sdf>

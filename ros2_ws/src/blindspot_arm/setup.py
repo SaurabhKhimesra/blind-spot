@@ -18,5 +18,7 @@ setup(
     description="UR5e eye-in-hand servoing under the blindspot guard.",
     license="MIT",
     entry_points={"console_scripts": ["wave = blindspot_arm.wave:main",
-            "duel = blindspot_arm.duel_node:main"]},
+            "duel = blindspot_arm.duel_node:main",
+            "fold = blindspot_arm.fold_node:main",
+            "record = blindspot_arm.record_node:main"]},
 )

@@ -26,12 +26,14 @@ the standard fix for the famous failure makes two of the others worse. That is
 a crooked insertion, a tripped safety stop, or a scrapped part.
 
 **This is a simulation study of control laws, not a robot demo.** There is no
-hardware and no arm: it is a free-flying camera, 170 regression tests, and 16
-finite-difference checks. The control results are derived with exact feature
-positions, then re-run against a **rendered MuJoCo camera with a real OpenCV
-ArUco detector** — which agrees with exact projection to 0.095 px and
-reproduces three of the four verdicts. Putting it on a simulated arm (joint
-limits, dynamics, contact) is the next phase, not a finished one.
+hardware: the control results are a free-flying camera, 177 regression tests
+and 16 finite-difference checks, derived with exact feature positions and then
+re-run against a **rendered MuJoCo camera with a real OpenCV ArUco detector**
+— which agrees with exact projection to 0.095 px and reproduces three of the
+four verdicts. A **Gazebo UR5e cell** runs the same guard through a real arm's
+Jacobian and a blob detector; it is where two of the findings below were first
+noticed, both then reproduced in numpy. Real hardware is still the open
+question.
 
 Image-based visual servoing has four distinct ways to go blind, and no fixed
 control law survives all four. Switching the 2001 partition *off at runtime*
@@ -124,6 +126,69 @@ margin 1.54×), then the panel tilts and they diverge — the unguarded cell
 keeps the partition at margin 2.18× and drives in close to the workpiece,
 while the guarded cell drops the partition at margin 0.55× and holds its
 standoff, with all six markers visible in both throughout.
+
+**That switch is a false positive**, and finding it is what this demo was
+worth: the tilted panel is a perfectly healthy target seen at a steep angle,
+not a degenerate one. Dead claim 4 has the numbers and what it costs. For the
+case the partition genuinely cannot survive, see the folding part next.
+
+### The folding part (Gazebo, and the clip)
+
+Same two cells, but each panel is two flaps on a horizontal hinge. Mid-run
+both fold 85° in 1 s, away from the arm, so the six markers collapse toward
+the hinge line **in 3D** while all six stay in view and perfectly detected.
+Both cells run the same protective stop: no commanded motion may bring the
+camera within 12 cm of the hinge plane.
+
+![The part folds; the unguarded arm drives at it and trips its protective stop, the guarded arm holds its standoff](docs/folding_part.gif)
+
+[Full clip, 38 s](docs/folding_part.mp4) — cut by `arm_clip.py` from one
+recorded run. Every frame of robot motion in it is a frame Gazebo rendered
+during that run, and every number on screen is read from that run's log; the
+edit changes only timing, crops and overlays.
+
+```bash
+RECORD=1 RATE=120 OUT=~/clip ~/blind-spot/run_fold_demo.sh   # run + record
+.venv/bin/python arm_clip.py ~/clip                          # cut the clip
+```
+
+One run, sim time, both cells identical until the fold:
+
+| | partition always on | with the guard |
+|---|---|---|
+| guard decision | not used | **fires 0.96 s into the fold** at margin 0.90× |
+| standoff | 26.3 cm → **protective stop at 16.2 cm**, 1.46 s in | **holds 22–24 cm** |
+| markers detected | 6/6 throughout | 6/6 throughout |
+
+Reproduced in numpy with the arm's own control law — imported from
+`ros2_ws/src/blindspot_arm/blindspot_arm/law.py`, not transcribed
+(`tests.py` section 22): the partition reaches **6.8 cm** from a 26 cm
+standoff and loses the markers for 38 steps; the guard fires 0.9 s in and
+holds **18 cm**; plain IBVS alone holds **22.5 cm**.
+
+- **Why the partition fails.** Its substitute for depth is the polygon area.
+  A folding part shrinks that area, the law reads "too far away", and its v_z
+  drives the camera at the part. Nothing is wrong with the arm, the detector
+  or the markers.
+- **σ₆ never fires** (minimum 1.29× of its threshold). Folding *away* from
+  the camera adds depth variation, so the interaction matrix stays well
+  conditioned. This is the mirror image of dead claim 4: there the area guard
+  cried wolf and σ₆ was right; here the area guard is right and the spectrum
+  is blind.
+- **The guard only wins a race.** It fires when the fold outpaces the
+  partition's own depth loop: 75° within 1 s, 80° within 1.5 s, 85° within
+  2 s. Slower folds are **masked**, because the lunge restores the very area
+  the guard watches — at 85° over 3 s the area never drops below 1.16× and
+  the guarded cell lunges to 2 cm exactly like the unguarded one. A guard on
+  a quantity its own controller regulates is only as good as that race.
+- **What the act does not show, measured.** Held folded for several seconds,
+  the fallback creeps: commanded ‖v‖ grew 0.03 → 0.60 over 4 s and the
+  marker correspondence began to flip, because a fully folded part leaves an
+  orbit about the hinge line that the image cannot see. And when the flaps
+  unfolded, the guard re-enabled the partition at 62° of remaining fold; the
+  first command after that was **6.05** and the target was lost within 1 s.
+  The act therefore ends 2.6 s after the fold, and the clip claims only what
+  the act shows.
 
 ### Live simulation with visuals
 
@@ -248,13 +313,13 @@ calibrated per target — never tuned by hand, never fitted on a degraded run.
 
 ```bash
 python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python tests.py                                    # 170/170 and 16/16
+.venv/bin/python tests.py                                    # 177/177 and 16/16
 .venv/bin/python compare.py && .venv/bin/python fig_failure_modes.py
 ```
 
 `test_blindspot.py` (34 more) covers the packaged API and the ROS bridge.
 
-`tests.py` must print **170/170** and `fd_check.py` **16/16**. `fd_check.py` verifies every
+`tests.py` must print **177/177** and `fd_check.py` **16/16**. `fd_check.py` verifies every
 derivative and sign by finite difference rather than by reasoning about
 conventions — two sign bugs in this repo were found that way and neither would
 have been caught by inspection.
@@ -391,10 +456,13 @@ default is no hysteresis. The parameter exists (`hysteresis=` in
    for 123–125 steps and backs away to 1.80–2.03 m over five noise seeds,
    while σ₆ does not switch.
 
-   So the honest ledger: **σ₆ is the faithful signal of whether the geometry
-   is degenerate. The area guard has the steadier statistic, and it is the one
-   rule that reacts to a view going edge-on — for the wrong reason, at the
-   cost of a retreat.** Neither dominates. The spectrum *is* load-bearing —
+   So the honest ledger: **σ₆ is the faithful signal of whether the
+   interaction matrix is degenerate. The area guard has the steadier
+   statistic, and it is the one rule that reacts to a view going edge-on —
+   for the wrong reason, at the cost of a retreat.** Neither dominates, and
+   the folding part above is the same trade running the other way: the
+   partition's own feature collapses, the area guard catches it, and σ₆ stays
+   silent at 1.29×. The spectrum *is* load-bearing —
    just not on any case the original suite contained, which is the same
    lesson as the collapsed-target case that counting could not see. Locked in
    `tests.py` sections 20 and 21.
@@ -444,6 +512,18 @@ unchanged at every collapse level.
 ## Limits
 
 Read these before believing any number above.
+
+- **A guard on a regulated quantity only wins a race.** The area the guard
+  watches is the same area the partition drives to its goal, so a degeneracy
+  slow enough for the control loop to absorb never crosses the threshold:
+  measured on the folding part, 85° over 3 s is missed entirely and the
+  guarded cell fails exactly like the unguarded one (`tests.py` section 22).
+- **Beyond the guard there is still no controller for a collapsed target.**
+  With the part held folded, the fallback creeps along an orbit about the
+  hinge line that the image cannot see (‖v‖ 0.03 → 0.60 over 4 s), and
+  re-enabling the partition mid-unfold produced a 6.05 command spike that
+  lost the target. The guard decides *which* law to run; it does not make a
+  law for geometry that is genuinely unobservable.
 
 - **Exact feature positions throughout.** No rendered camera, no detector, no
   correspondence errors. Everything here is a free-flying virtual camera with
@@ -654,7 +734,7 @@ land under a pixel apart.
 | `partitioned.py` | Partitioned IBVS (Corke & Hutchinson 2001); `rel_tau=1e-3` gives the combined controller |
 | `truncated.py` | Adaptive-rank pseudo-inverse and the truncation-only controller |
 | `switched.py` | The runtime switch: `count`, `rank_margin`, `sigma6`, `sigma6_n`, `area_guard`, `alpha_guard`, and the healthy-pose calibration |
-| `tests.py` | 170 regression tests. Run before and after every change |
+| `tests.py` | 177 regression tests. Run before and after every change |
 | `fd_check.py` | 16 finite-difference checks of every derivative, sign, and null space relied on |
 | `compare.py` | Regenerates the results table |
 | `tau_sweep.py` | τ sensitivity and calibration-percentile sensitivity |
@@ -673,6 +753,9 @@ land under a pixel apart.
 | `examples/quickstart.py` | Runs immediately on the shipped ring target |
 | `blindspot/ros_bridge.py` | Detector output to guard input: ordering, ids, units. No ROS imports, so it is testable without ROS |
 | `ros2_ws/src/blindspot_ros/` | The ROS 2 node, a live simulation with RViz visuals, and a headless demo |
+| `ros2_ws/src/blindspot_arm/` | The Gazebo UR5e cells: the tilting panel demo, the folding part demo, and `law.py`, the control law the arms run and `tests.py` checks |
+| `run_fold_demo.sh` | Runs the folding-part act, optionally recording every camera frame |
+| `arm_clip.py` | Cuts the clip from one recorded run and that run's log |
 
 ## Setup note
 
