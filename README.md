@@ -15,6 +15,10 @@ else:
 h = guard.evaluate(s_visible)                   # signal, threshold, margin, n, decision
 ```
 
+**[The book](book/)** is the long-form account: every algorithm, every number
+that decided something, every problem hit while building it, and how to
+explain the whole thing out loud. Start at [book/README.md](book/README.md).
+
 `python examples/quickstart.py` runs it end to end in 30 seconds with no setup.
 Calibrate on a **known-good** target:
 `python -m blindspot.calibrate --geometry target.json --goal-pose pose.json -o my_target.json`
@@ -756,6 +760,7 @@ land under a pixel apart.
 | `ros2_ws/src/blindspot_arm/` | The Gazebo UR5e cells: the tilting panel demo, the folding part demo, and `law.py`, the control law the arms run and `tests.py` checks |
 | `run_fold_demo.sh` | Runs the folding-part act, optionally recording every camera frame |
 | `arm_clip.py` | Cuts the clip from one recorded run and that run's log |
+| `book/` | The long-form account of the project, 14 chapters, written to be read aloud |
 
 ## Setup note
 
