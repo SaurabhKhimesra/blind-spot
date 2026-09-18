@@ -1,4 +1,4 @@
-# 13. The folding part, and the clip
+# 26. The folding part, and the clip
 
 ## In plain words
 
@@ -92,7 +92,7 @@ limits:
   commanded speed grew from 0.03 to 0.60 over 4 s and the marker
   correspondence started flipping. A fully folded part leaves an orbit about
   the hinge line that the image cannot see — the same weak-direction story as
-  chapter 12 — and the controller drifts along it.
+  chapter 25 - and the controller drifts along it.
 - **Re-engaging the partition mid-unfold is violent.** When the flaps opened
   again, the guard re-enabled the partition while the part was still folded to
   62°, the first command after that was **6.05**, and the target was lost

@@ -15,9 +15,11 @@ else:
 h = guard.evaluate(s_visible)                   # signal, threshold, margin, n, decision
 ```
 
-**[The book](book/)** is the long-form account: every algorithm, every number
-that decided something, every problem hit while building it, and how to
-explain the whole thing out loud. Start at [book/README.md](book/README.md).
+**[The book](docs/the-blind-spot.pdf)** (PDF, 98 pages) is the complete
+account, built from the ground up: it assumes no robotics and no linear
+algebra, defines each term as it arrives, derives every idea before using it,
+and quotes every number that decided something. Source chapters in
+[book/](book/); rebuild with `.venv/bin/python book/build_pdf.py`.
 
 `python examples/quickstart.py` runs it end to end in 30 seconds with no setup.
 Calibrate on a **known-good** target:
@@ -760,7 +762,7 @@ land under a pixel apart.
 | `ros2_ws/src/blindspot_arm/` | The Gazebo UR5e cells: the tilting panel demo, the folding part demo, and `law.py`, the control law the arms run and `tests.py` checks |
 | `run_fold_demo.sh` | Runs the folding-part act, optionally recording every camera frame |
 | `arm_clip.py` | Cuts the clip from one recorded run and that run's log |
-| `book/` | The long-form account of the project, 14 chapters, written to be read aloud |
+| `book/` | The book: 29 chapters from first principles, and the script that typesets the PDF |
 
 ## Setup note
 

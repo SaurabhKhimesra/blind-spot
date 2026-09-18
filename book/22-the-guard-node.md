@@ -1,4 +1,4 @@
-# 10. Packaging it: the library and the ROS 2 node
+# 22. Packaging it: the library and the ROS 2 node
 
 ## In plain words
 
@@ -34,7 +34,7 @@ Four design rules, all of them refusals:
    another).
 2. **No unit guessing.** The guard works in normalised image coordinates.
    `blindspot/units.py` converts from pixels and *requires* the principal
-   point; it will not assume `W/2` (chapter 9 explains why that half pixel
+   point; it will not assume `W/2` (chapter 20 explains why that half pixel
    matters).
 3. **No controllers in the product.** The verified control laws live in
    `blindspot/reference/`, whose docstring says they are "EXAMPLES, not the

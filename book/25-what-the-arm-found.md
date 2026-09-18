@@ -1,4 +1,4 @@
-# 12. What the arm found
+# 25. What the arm found
 
 ## In plain words
 
@@ -31,7 +31,7 @@ Reproduced in numpy, on the ring target:
 | healthy, 75° | **0.86× — fires** | 28.72× — silent |
 | collapsed in 3D, c = 0.5 | 1.19× — misses | **0.74× — fires** |
 
-And the physics runs the way chapter 2 predicts: a face-on planar target is
+And the physics runs the way chapter 7 predicts: a face-on planar target is
 the *worst*-conditioned case, so tilting it **improves** the matrix — σ₆ rises
 about 15× — while the projected area shrinks. The two signals move in opposite
 directions on the same event.
@@ -57,7 +57,7 @@ grazing view, where the dots are thin ellipses. The retraction is written into
 the file where the wrong claim was.
 
 Worth saying plainly in an interview: **the attribution was too quick, and the
-measurement was what caught it.** That is the same discipline as chapter 7,
+measurement was what caught it.** That is the same discipline as chapter 18,
 applied to my own conclusion.
 
 ## Finding 2: the benchmark's symmetric start

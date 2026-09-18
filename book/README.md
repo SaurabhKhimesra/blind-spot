@@ -1,89 +1,86 @@
-# The Blind Spot — the whole project, written out
+# The Blind Spot — the book
 
-This is the long-form account of the project in `..`: what the problem is, what
-was built, every algorithm in it, every number that decided something, and
-every problem hit along the way — including the ones where I was confidently
-wrong and had to retract in writing.
+The complete account of the project in `..`, built from the ground up: it
+assumes no robotics and no linear algebra, explains each term as it arrives,
+and derives every idea before using it.
 
-It exists so the project can be explained out loud, line by line, without
-hand-waving.
+**Read the PDF**: [`docs/the-blind-spot.pdf`](../docs/the-blind-spot.pdf),
+built from these files with `.venv/bin/python book/build_pdf.py` (needs
+`reportlab`, which the study itself does not).
 
-**Written to be followed by a bright school student.** Every chapter opens
-with an **"In plain words"** section that uses no jargon, then gives the
-precise version with the real numbers. Every chapter closes with **"Say it
-like this"**, a spoken version for an interview.
+Every chapter opens **in plain words** with no jargon, gives the precise
+version with the real numbers, and closes with **"Say it like this"** — a
+spoken version for an interview.
 
-**Where the ROS 2 work is.** Chapter 10 is the guard as a ROS 2 node inside
-someone else's stack; chapter 11 is the full robot stack — Gazebo,
-`ros2_control`, bridges, launch, sim time, kinematics — and every problem hit
-while building it. Chapter 14 has the ROS questions an interviewer is likely
-to ask, and one short section on how to describe the split between the numpy
-study and the ROS deployment accurately, because the repo is open and the
-split is visible in it.
+## Contents
 
-## Chapters
+**Part 0 — Foundations**
 
-| # | Chapter | What it covers |
-|---|---|---|
-| 1 | [The question](01-the-question.md) | Where the project started, the founding hypothesis, how scope was fixed |
-| 2 | [Visual servoing from scratch](02-visual-servoing.md) | The algorithm: features, error, interaction matrix, control law, integration |
-| 3 | [Four ways to go blind](03-four-failures.md) | The failure modes, what breaks in each, why image error is a liar |
-| 4 | [The 2001 partition](04-the-partition.md) | Corke & Hutchinson's fix in full, and the two failures it makes worse |
-| 5 | [Truncation and the switch](05-truncation-and-switch.md) | Adaptive-rank pseudo-inverse, τ, the runtime switch, the results table |
-| 6 | [The guard](06-the-guard.md) | The shipped signal, calibration, the in-situ trap, noise, hysteresis |
-| 7 | [How correctness was established](07-verification.md) | Finite differences, the two sign bugs, the 177-test suite |
-| 8 | [Dead claims](08-dead-claims.md) | Seven claims of mine that died, each with the number that killed it |
-| 9 | [A real camera and a real detector](09-rendered-camera.md) | MuJoCo + ArUco, the 0.095 px gate, five bugs, correlated degradation |
-| 10 | [Packaging it](10-package-and-ros.md) | The library contract, the ROS 2 node, what they refuse to do |
-| 11 | [Building the arm environment](11-arm-environment.md) | Gazebo, UR5e, controllers, cameras, kinematics, and every build problem |
-| 12 | [What the arm found](12-what-the-arm-found.md) | The false positive, the retracted claim, the retreat-row trade |
-| 13 | [The folding part](13-the-folding-part.md) | The case the partition cannot survive, and how the clip was made |
-| 14 | [Telling the story](14-interview.md) | 30-second, 2-minute and 10-minute versions, plus a question bank |
+| | |
+|---|---|
+| 1 | [What this is about](01-what-this-is-about.md) |
+| 2 | [Where things are: frames and transforms](02-frames-and-transforms.md) |
+| 3 | [How a camera turns the world into numbers](03-the-camera.md) |
+| 4 | [Matrices, least squares, and the one idea behind every failure](04-matrices-and-svd.md) |
+| 5 | [Feedback control in one chapter](05-feedback-control.md) |
 
-## The one-page version
+**Part 1 — Visual servoing, derived**
 
-A camera on a robot's wrist steers the robot by watching features on the part.
-The standard method, **image-based visual servoing (IBVS)**, has a famous
-failure: for a large rotation about the optical axis it flies the camera
-backwards instead of rotating. Corke & Hutchinson's 2001 **partitioned**
-scheme fixes that by driving the two optical-axis degrees of freedom from
-direct image measurements — the area of the feature polygon for depth, the
-angle of a line between two features for roll — instead of from the inverted
-interaction matrix.
+| | |
+|---|---|
+| 6 | [The servo loop](06-the-servo-loop.md) |
+| 7 | [Deriving the interaction matrix](07-interaction-matrix.md) |
+| 8 | [The control law, and turning it into motion](08-control-law-and-motion.md) |
+| 9 | [The harness: what is actually run](09-the-harness.md) |
 
-That fix is real, and it makes two *other* failures worse. When features drop
-to two, its reduced 4×4 solve becomes exactly determined and brittle
-(**288×** velocity spike). When the target's geometry collapses, it forces
-four degrees of freedom through an ill-conditioned matrix and floors short of
-the goal (**7.3e-3**, never reaching 1e-4).
+**Part 2 — Four ways to go blind**
 
-So the partition should not be a fixed choice. It should be a **runtime
-decision**, and the project's founding hypothesis was that deciding it well
-needed a learned policy. It does not: a one-line rule on a quantity the
-controller already computes closes the gap from **11.6× to 0.5×**, better than
-the 2× bar set before running it.
+| | |
+|---|---|
+| 10 | [Camera retreat](10-camera-retreat.md) |
+| 11 | [Feature dropout](11-feature-dropout.md) |
+| 12 | [Two features left](12-two-features.md) |
+| 13 | [The collapsed target](13-collapsed-target.md) |
 
-The shipped rule watches the **health of the partition's own substitute
-features** — the polygon area against a range calibrated on a known-good
-target — rather than the spectrum of the matrix being inverted. That choice is
-defensible but not dominant, and the project says so in its own README: the
-area signal cannot tell a degenerate part from a healthy one seen at a steep
-angle, and on one benchmark start that costs a 2–3 m retreat. The spectral
-signal σ₆ is blind to the case a folding part creates. Neither wins outright,
-and both failure directions are measured.
+**Part 3 — Fixes, and what they cost**
 
-Everything is checked twice: derivatives by finite difference rather than by
-reasoning about sign conventions (two sign bugs were found that way), results
-by a 177-test regression suite, and the control conclusions again against a
-**rendered camera with a real OpenCV ArUco detector** (agrees with exact
-projection to 0.095 px) and again in a **Gazebo UR5e cell** driving a real
-arm's Jacobian.
+| | |
+|---|---|
+| 14 | [The 2001 partition](14-the-partition.md) |
+| 15 | [Truncation: declining to move blind](15-truncation.md) |
+| 16 | [The switch: deciding per step](16-the-switch.md) |
+| 17 | [The guard that shipped](17-the-guard.md) |
 
-## How to use this book before an interview
+**Part 4 — Making sure it is true**
 
-1. Read chapter 14 first. It has the three lengths of the story.
-2. Read chapters 2, 4 and 6. That is the actual technical content: the method,
-   the fix, and the guard.
-3. Skim chapter 8. Interviewers dig for what went wrong; that chapter is
-   nothing but what went wrong, with numbers.
-4. Keep chapter 11 for the "tell me about a hard debugging session" question.
+| | |
+|---|---|
+| 18 | [How correctness was established](18-verification.md) |
+| 19 | [Dead claims](19-dead-claims.md) |
+| 20 | [A real camera and a real detector](20-rendered-camera.md) |
+
+**Part 5 — On a robot**
+
+| | |
+|---|---|
+| 21 | [ROS 2, from zero](21-ros2-from-zero.md) |
+| 22 | [The guard as a ROS 2 node](22-the-guard-node.md) |
+| 23 | [Building the Gazebo cell](23-the-gazebo-cell.md) |
+| 24 | [Kinematics and perception on the arm](24-kinematics-and-perception.md) |
+| 25 | [What the arm found](25-what-the-arm-found.md) |
+| 26 | [The folding part, and the clip](26-the-folding-part.md) |
+
+**Part 6 — Using it**
+
+| | |
+|---|---|
+| 27 | [Limits, collected](27-limits.md) |
+| 28 | [Telling the story](28-telling-the-story.md) |
+| 29 | [Glossary, and every number in one place](29-glossary.md) |
+
+## Reading paths
+
+- **Never seen robotics**: 1 → 5 in order, then 10, 14, 17, then 26.
+- **Know control, new to visual servoing**: 6 → 9, then part 2, then 17.
+- **Preparing for an interview tomorrow**: 28, then 19, then 27, then 23.
+- **Reviewing the engineering**: 9, 18, 19, 27.

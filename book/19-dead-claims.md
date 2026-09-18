@@ -1,4 +1,4 @@
-# 8. Dead claims
+# 19. Dead claims
 
 ## In plain words
 
@@ -67,7 +67,7 @@ physics predicts: a face-on planar target is the *worst*-conditioned IBVS case
 because every point sits at one depth, so tilting it **improves** conditioning
 (σ₆ rises about 15×) while the projected area shrinks.
 
-*And then the cost was measured*, which is chapter 12: on a tilting target the
+*And then the cost was measured*, which is chapter 25: on a tilting target the
 false positive is free, but on the retreat benchmark from a start just 2 cm or
 3° off the exact symmetric one, it costs a 2.0–2.9 m retreat in 100 runs out
 of 100 — while σ₆, by staying silent, rides the partition into losing the
@@ -75,7 +75,7 @@ target entirely in 3 runs of 100.
 
 Final ledger: neither dominates. σ₆ is the faithful signal of whether the
 *matrix* is degenerate; the area is the faithful signal of whether the
-*partition's own feature* is healthy, and the folding part (chapter 13) is the
+*partition's own feature* is healthy, and the folding part (chapter 26) is the
 case where that difference saves the run and σ₆ is blind at 1.29×.
 
 ## 5. "The collapsed-target velocity spike is evidence for switching"

@@ -1,4 +1,4 @@
-# 14. Telling the story
+# 28. Telling the story
 
 ## The 30-second version
 
@@ -41,18 +41,18 @@ Add, in this order:
 
 Draw these five things in order. Each one is a chapter of this book.
 
-1. **The projection and the interaction matrix** (chapter 2). Point at the two
+1. **The projection and the interaction matrix** (chapter 7). Point at the two
    rows. Say what each column means. Point out that `vx` and `ωy` look alike
    for a small far target — that's the weak direction everything later turns
    on.
-2. **The control law and its inverse** (chapter 2). `v = −λ L⁺ e`. Say: every
+2. **The control law and its inverse** (chapter 8). `v = −λ L⁺ e`. Say: every
    failure in this project happens inside this inverse.
-3. **The partition** (chapter 4). Cross out two columns; write `vz` from area
+3. **The partition** (chapter 14). Cross out two columns; write `vz` from area
    and `ωz` from line angle beside them. Say: this fixes retreat and makes the
    remaining solve exactly determined, which is the 288× spike.
-4. **The switch and the guard** (chapters 5–6). One comparison per step;
+4. **The switch and the guard** (chapters 16–17). One comparison per step;
    threshold from calibration; what the margin means.
-5. **The two counter-examples** (chapters 12–13). Oblique healthy part: area
+5. **The two counter-examples** (chapters 25–26). Oblique healthy part: area
    fires, σ₆ silent. Folding part: area fires correctly, σ₆ silent at 1.29×.
    Say: same disagreement, opposite verdicts, which is why the repo ships the
    trade rather than a winner.
@@ -155,7 +155,7 @@ Draw these five things in order. Each one is a chapter of this book.
 > `JointTrajectoryController` with a 0.16 s horizon at 10 Hz.
 
 **"What broke while you were building it?"**
-> Pick two from chapter 11. The good pair: the detector finding seven blobs
+> Pick two from chapter 23. The good pair: the detector finding seven blobs
 > because the robot's own wrist enters the frame at close standoff — fixed by
 > selecting the six most similar in area rather than the six largest; and
 > ordering six identical dots by angle fixing their order but not where the

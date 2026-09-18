@@ -1,4 +1,4 @@
-# 7. How correctness was established
+# 18. How correctness was established
 
 ## In plain words
 
@@ -85,7 +85,7 @@ that step (1.62×). That correction is written into the README rather than
 silently fixed.
 
 **When a result surprises you, suspect the instrument first.** Three of the
-five rendered-camera bugs in chapter 9 were found because a number was *too
+five rendered-camera bugs in chapter 20 were found because a number was *too
 good*, not too bad.
 
 ## Say it like this
