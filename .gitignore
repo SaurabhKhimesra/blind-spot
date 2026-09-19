@@ -1,19 +1,13 @@
-.venv/
-__pycache__/
-*.pyc
+# colcon
+/build/
+/install/
+/log/
 
-# Internal handoff notes and the superseded plan document.
-# One source of truth for what this repo found: README.md.
-# A web version, if wanted, should be generated from the README into docs/
-# and served by GitHub Pages rather than hand-maintained as a second doc.
+# python
+__pycache__/
+*.egg-info/
+.venv/
+
+# local notes
 BRIEF.md
 plan.html
-_aruco_tex/
-build/
-*.egg-info/
-
-# colcon build artifacts
-ros2_ws/build/
-ros2_ws/install/
-ros2_ws/log/
-*.urdf.generated

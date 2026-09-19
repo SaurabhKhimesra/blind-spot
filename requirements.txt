@@ -1,5 +1,0 @@
-# Everything in this repo runs on numpy alone; scipy and matplotlib are used
-# only by the figures and the study scripts.
-numpy>=1.24
-scipy>=1.10
-matplotlib>=3.7
