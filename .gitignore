@@ -11,3 +11,7 @@ __pycache__/
 # local notes
 BRIEF.md
 plan.html
+
+# pip/setuptools build output inside a package (colcon's own live at the root)
+build/
+dist/
