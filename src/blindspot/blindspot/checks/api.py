@@ -13,9 +13,9 @@ import tempfile
 
 import numpy as np
 
-from blindspot import (Calibration, FeatureGuard, intrinsics_from_fov,
+from blindspot import (FeatureGuard, intrinsics_from_fov,
                        pixels_to_normalised, polygon_sigma)
-from blindspot.calibrate import calibrate, load_pose
+from blindspot.calibrate import calibrate
 from blindspot.study.partitioned import polygon_sigma as reference_sigma
 
 PASS, FAIL = "  ok  ", " FAIL "

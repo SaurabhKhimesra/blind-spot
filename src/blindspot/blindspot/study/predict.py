@@ -17,7 +17,7 @@ checks exercises it.
 import numpy as np
 
 from blindspot.study.ibvs_core import (interaction_matrix, transform_points, project,
-                                       make_pose, rot_z, rot_x, se3_exp)
+                                       se3_exp)
 
 
 def roll_forward(s, Z, v, dt, K, fixed_depth=False):

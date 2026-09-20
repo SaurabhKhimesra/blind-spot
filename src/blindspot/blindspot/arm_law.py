@@ -23,11 +23,6 @@ IMG_W, IMG_H, HFOV = 640, 480, 1.0472
 _FX = (IMG_W / 2.0) / np.tan(HFOV / 2.0)
 K_DEFAULT = (_FX, _FX, (IMG_W - 1) / 2.0, (IMG_H - 1) / 2.0)
 
-def hexagon(r):
-    a = np.linspace(0, 2 * np.pi, 7)[:-1]
-    return np.stack([r * np.cos(a), r * np.sin(a), np.zeros(6)], axis=1)
-
-
 def order_by_angle(pts):
     c = pts.mean(axis=0)
     return pts[np.argsort(np.arctan2(pts[:, 1] - c[1], pts[:, 0] - c[0]))]

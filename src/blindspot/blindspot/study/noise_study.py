@@ -19,7 +19,7 @@ using a focal length, so the numbers are comparable to real detectors:
 """
 
 import numpy as np
-from blindspot.study.ibvs_core import (square_target, make_pose, rot_z, rot_x,
+from blindspot.study.ibvs_core import (make_pose, rot_z, rot_x,
                                        transform_points, project, interaction_matrix)
 
 F_PX = 600.0          # focal length, typical 640x480 webcam

@@ -20,8 +20,8 @@ engineer would do - so this is not a strawman.
 
 import numpy as np
 
-from blindspot.study.ibvs_core import (se3_exp, make_pose, rot_z, rot_x,
-                                       transform_points, project, interaction_matrix)
+from blindspot.study.ibvs_core import (se3_exp, transform_points, project,
+                                       interaction_matrix)
 from blindspot.study.truncated import pinv_truncated
 
 Z_COLS = [2, 5]           # vz, wz

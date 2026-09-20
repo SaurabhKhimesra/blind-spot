@@ -10,7 +10,6 @@ import numpy as np
 from blindspot.study.ibvs_core import (se3_exp, make_pose, rot_z, rot_x, transform_points,
                                        project, interaction_matrix, sigma_6)
 from blindspot.study.partitioned import (polygon_sigma, line_alpha, wrap, Z_COLS, XY_COLS)
-from blindspot.study.truncated import pinv_truncated
 from blindspot.study.switched import use_partition, numerical_rank
 
 H = 1e-6

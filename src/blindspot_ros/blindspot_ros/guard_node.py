@@ -25,6 +25,7 @@ fires and nothing looks wrong.
 
 import numpy as np
 import rclpy
+import rclpy.logging
 from rclpy.executors import ExternalShutdownException
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from rclpy.node import Node
@@ -165,7 +166,7 @@ def main(argv=None):
     try:
         node = GuardNode()
     except RuntimeError as e:
-        print("blindspot_guard: %s" % e)
+        rclpy.logging.get_logger("blindspot_guard").fatal(str(e))
         _shutdown()
         return 1
     try:
