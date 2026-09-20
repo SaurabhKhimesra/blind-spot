@@ -109,11 +109,15 @@ def features_to_normalised(uv, fx, fy, cx, cy, ids=None):
 
 
 def ordering_is_suspect(uv, tol=0.98):
-    """True if the shoelace area is well below the convex-hull area.
+    """True if the given order encloses much less area than an angular sort.
 
     A cheap self-check: for points in a sane order the two agree. If they do
     not, the order crosses itself and the area - and therefore the guard
     decision - is not measuring the geometry.
+
+    The reference is the polygon of the angular sort about the centroid, which
+    is the convex hull only when the points are in convex position; for a
+    concave arrangement it under-reports, so this errs towards staying quiet.
     """
     uv = np.asarray(uv, dtype=float)
     if uv.shape[0] < 3:
