@@ -1,15 +1,17 @@
 # The Blind Spot
 
+[![checks](https://github.com/SaurabhKhimesra/blind-spot/actions/workflows/checks.yml/badge.svg)](https://github.com/SaurabhKhimesra/blind-spot/actions/workflows/checks.yml)
+
 **A runtime guard for vision-guided robot arms, and the ROS 2 / Gazebo study
 behind it.**
 
-![Two UR5e cells in Gazebo, one frame after the part folds. Left: the 2001 partitioned controller drives at the part and trips its protective stop. Right: the same controller with the guard switches control law and holds its standoff.](docs/fold_demo.jpg)
+![Two UR5e cells in Gazebo. The part folds; the left arm drives at it and trips its protective stop, the right arm switches control law and holds its standoff.](docs/folding_part.gif)
 
-*One frame of the Gazebo act, 1.9 s after the part starts to fold. Both cells
-run identical code except for one decision. Left: the 2001 partitioned
-controller reads the collapsing marker pattern as distance, drives at the part
-and trips its protective stop. Right: the guard sees the partition's own
-feature collapse, switches control law, and holds its standoff.*
+*The Gazebo act. Both cells run identical code except for one decision. Left:
+the 2001 partitioned controller reads the collapsing marker pattern as
+distance, drives at the part and trips its protective stop. Right: the guard
+sees the partition's own feature collapse, switches control law, and holds its
+standoff. ([one frame, full resolution](docs/fold_demo.jpg))*
 
 ---
 
@@ -27,9 +29,12 @@ This repository:
 - makes the partition a **runtime decision**, and compares six candidate rules
   for making it — a one-line guard closes the worst gap from **11.6× to 0.5×**,
   with no learned policy;
-- ships the guard as a **ROS 2 node** that publishes one `std_msgs/Bool`;
-- runs it closed-loop on **two UR5e arms in Gazebo** — perception, guard,
-  control law and the arm's own Jacobian at 10 Hz on simulation time.
+- ships the guard as a **ROS 2 node** that publishes one `std_msgs/Bool`,
+  driven by synthetic detections and by a live servo loop in RViz;
+- runs the guard closed-loop on **two UR5e arms in Gazebo** — perception,
+  guard, control law and the arm's own Jacobian at 10 Hz on simulation time.
+  The arm cells call the guard library in-process rather than subscribing to
+  the node, so the decision path is shared but the transport is not.
 
 Every result is produced by code in this workspace and locked by
 `colcon test`: **177 regression checks, 16 finite-difference checks, 34 API
@@ -37,7 +42,22 @@ checks.**
 
 ## Quick start
 
-Ubuntu 26.04, ROS 2 Lyrical, Gazebo:
+**The study needs no ROS.** The guard library and all three check suites are
+pure numpy, so the numbers in this README reproduce on any machine in under a
+minute:
+
+```bash
+git clone https://github.com/SaurabhKhimesra/blind-spot && cd blind-spot
+pip install ./src/blindspot
+regression        # 177 checks, ~20 s
+fd_check          # 16 finite-difference checks
+api_checks        # 34 API checks
+compare           # the results table below
+quickstart        # the library in 30 seconds
+```
+
+**For the ROS 2 node and the Gazebo act** — Ubuntu 26.04, ROS 2 Lyrical,
+Gazebo:
 
 ```bash
 sudo apt install ros-lyrical-desktop ros-lyrical-vision-msgs \
@@ -59,12 +79,13 @@ ros2 launch blindspot_ros sim.launch.py           # servo loop through the guard
 ros2 launch blindspot_ros demo.launch.py          # guard node on synthetic detections
 
 ros2 run blindspot regression                     # the 177 checks, printed
-ros2 run blindspot compare                        # regenerates the results table
+ros2 run blindspot compare                        # the results table, plus the rules it omits
 ros2 run blindspot quickstart                     # the library in 30 seconds
 ```
 
 `fold.launch.py` takes `gui:=false` for headless runs and `record:=true` to
-save every camera frame by simulation timestamp. It starts the servo node once
+save every camera frame by simulation timestamp — which is how the clip at the
+top of this README and the per-step CSV behind the arm table are produced. It starts the servo node once
 both controller managers are up, and exits when the act completes.
 
 ## Repository layout
@@ -106,6 +127,11 @@ calibrated per target, never tuned by hand.
 
 ![Four failure modes and which controllers survive each](docs/fig2_failure_modes.png)
 
+![Camera retreat: image error falls monotonically while the camera flies metres away from the target](docs/fig1_retreat.png)
+
+*Camera retreat, the case that makes image error useless as a health signal:
+the feature error decreases at every step while the camera flies 68 m away.*
+
 ## The four failure modes
 
 | Failure | What breaks | What fixes it |
@@ -126,13 +152,22 @@ that is what must be healthy for the partition to be safe:
 
 ```python
 from blindspot import FeatureGuard
+from blindspot.ros_bridge import order_features  # the signal is order-dependent
+
 guard = FeatureGuard.load("my_target.json")      # from calibration; no default
+s_visible, _, _ = order_features(s_visible, ids) # by marker id; angular fallback
 
 if guard.partition_ok(s_visible):                # normalised image coordinates
     v = my_partitioned_control(...)
 else:
     v = my_plain_control(...)
 ```
+
+**Order the points first.** The signal is a shoelace polygon area, so a
+self-crossing order encloses less and reads as a collapse that has not
+happened: on a healthy six-marker ring, shuffled input fires the guard on
+about half of all orderings. `guard_node` does this for you; a direct library
+caller must do it.
 
 **Calibration** (`ros2 run blindspot calibrate`) samples healthy poses around
 the goal and takes the 1st percentile, **per target** (thresholds do not
@@ -219,7 +254,8 @@ fails, not the arm or the detector.
 - **What the act does not show.** Held folded, the fallback creeps along an
   orbit about the hinge line that the image cannot see (‖v‖ 0.03 → 0.60 over
   4 s); re-enabling the partition mid-unfold produced a 6.05 command spike.
-  The act ends 2.6 s after the fold for that reason.
+  The act ends 2.5 s after the fold completes for that reason
+  (`t_fold:=20.0`, a 1 s ramp, `t_end:=23.5`).
 
 The arm is driven through its geometric Jacobian, hand-written in numpy from
 the URDF and verified against TF to 1e-6 m. The control law the arms run
@@ -305,6 +341,19 @@ Each is locked by a check, with the measurement that settled it.
   own geometry (`ros2 run blindspot tau_sweep`).
 - **Thresholds do not transfer between targets**, and must come from a
   known-good one.
+- **The guard signal is order-dependent**, and ordering is the caller's job
+  (above). `guard_node` orders by marker id and escalates the diagnostic to
+  ERROR when the order still looks self-crossing — but it publishes the
+  decision anyway, so treat an ERROR diagnostic as a reason to ignore the
+  `Bool`, not as a fail-safe.
+- **No lens distortion.** `camera_info`'s `D` is ignored and the pinhole model
+  is assumed; undistort your detections upstream if your lens needs it.
+- **`camera_info` is subscribed `TRANSIENT_LOCAL`.** Drivers that publish it
+  `VOLATILE` — most of them — are QoS-incompatible and will never connect.
+  Republish with matching durability, or pass `fovy_deg` instead.
+- **The Gazebo numbers are from three manual runs**, not from `colcon test`:
+  reproduce them with `fold.launch.py` and its per-step CSV. Everything in the
+  study tables is locked by a check; the arm table is not.
 
 ## Verification
 
