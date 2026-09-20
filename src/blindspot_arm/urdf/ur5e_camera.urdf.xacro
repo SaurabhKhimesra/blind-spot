@@ -12,7 +12,7 @@
   <xacro:arg name="prefix" default=""/>
   <xacro:arg name="ns" default=""/>
   <xacro:arg name="controllers_file"
-             default="$(find blindspot_arm)/config/controllers.yaml"/>
+             default="$(find blindspot_arm)/config/controllers_left.yaml"/>
 
   <!-- must be named exactly "world": that is the URDF convention that
        anchors the base to the global frame. Prefixing it made the arm a

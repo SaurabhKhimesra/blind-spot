@@ -5,12 +5,22 @@ monotonically and the commanded velocity is perfectly aligned with error
 reduction at every step, while the camera flies metres away from the target.
 The interaction-matrix conditioning is the signal that sees it coming.
 """
+import os
+
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from blindspot.study.ibvs_core import scenario_camera_retreat, run_ibvs
+
+
+def _out(name):
+    """Write beside the committed copy in docs/, not into whatever cwd we ran from."""
+    d = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      "..", "..", "..", "..", "docs"))
+    return os.path.join(d, name) if os.path.isdir(d) else name
+
 
 INK = "#1c1c1f"
 MUTED = "#6b6b73"
@@ -88,8 +98,8 @@ fig.text(0.008, 0.905,
          fontsize=8.4, color=MUTED, va="top")
 
 fig.tight_layout(rect=[0, 0, 1, 0.80])
-fig.savefig("fig1_retreat.png", dpi=190)
+fig.savefig(_out("fig1_retreat.png"), dpi=190)
 print("cos_align min/max: %.6f %.6f" % (cos_align.min(), cos_align.max()))
 print("warning at t=%.2f s, peak excursion at t=%.2f s, lead = %.2f s" % (t[warn], t[peak], lead))
 print("peak distance %.2f m (started at %.2f m)" % (Z[peak], Z[0]))
-print("saved fig1_retreat.png")
+print("saved %s" % _out("fig1_retreat.png"))

@@ -18,4 +18,4 @@ from .units import intrinsics_from_fov, pixels_to_normalised  # noqa: F401
 
 __all__ = ["FeatureGuard", "GuardReading", "Calibration", "polygon_sigma",
            "pixels_to_normalised", "intrinsics_from_fov"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"

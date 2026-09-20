@@ -9,9 +9,13 @@ Detectors report pixels, so convert before calling the guard.
 The principal point is (W-1)/2, not W/2. A renderer maps normalised device
 coordinates onto a CONTINUOUS pixel range [0, W], so the optical axis lands at
 continuous coordinate W/2; OpenCV indexes pixel CENTRES, which sit half a
-pixel lower. Using W/2 shows up as a systematic half-pixel bias in every
-feature - see the "Five bugs" section of the README, where it hid behind a
-corner-refinement method with a compensating offset.
+pixel lower. Using W/2 shows up as a systematic half-pixel bias in every feature. It is
+easy to miss: it once hid behind a corner-refinement method whose own
+offset happened to compensate for it.
+
+Lens distortion is NOT handled here. These conversions assume a pinhole
+camera; undistort your detections before calling the guard if your lens
+needs it.
 """
 
 import numpy as np

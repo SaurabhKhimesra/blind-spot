@@ -25,12 +25,22 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
+import os
+
 import numpy as np
 
 from blindspot.study.ibvs_core import run_ibvs, make_pose, rot_z, rot_x, scenario_camera_retreat
 from blindspot.study.partitioned import run_partitioned
 from blindspot.study.truncated import run_truncated
 from blindspot.study.switched import run_switched, calibrate_sigma6, calibrate_area
+
+
+def _out(name):
+    """Write beside the committed copy in docs/, not into whatever cwd we ran from."""
+    d = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      "..", "..", "..", "..", "docs"))
+    return os.path.join(d, name) if os.path.isdir(d) else name
+
 
 TAU = 1e-3
 CONVERGED = 1e-4
@@ -194,7 +204,7 @@ for i, (line, col) in enumerate(FOOT):
     fig.text(0.022, 0.098 - i * 0.0215, line, ha="left", va="center",
              color=col, fontsize=9.0)
 
-fig.savefig("fig2_failure_modes.png", dpi=170, facecolor=PLANE)
+fig.savefig(_out("fig2_failure_modes.png"), dpi=170, facecolor=PLANE)
 print("wrote fig2_failure_modes.png")
 for name, row in cells:
     print("  %-26s %s" % (name, "".join("P" if c[0] else "F" for c in row)))
