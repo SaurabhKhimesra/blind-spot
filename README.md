@@ -39,6 +39,10 @@ This repository:
 Every result is produced by code in this workspace and locked by
 `colcon test`: **225 checks** across four suites.
 
+The study began as my master's research at the University of Technology
+Sydney. This workspace is that work rebuilt as a ROS 2 / colcon package, with
+every result re-derived from scratch and pinned by the checks above.
+
 The runtime — guard, control law, calibrator and all five nodes — is **C++**
 (Eigen, rclcpp). The control study behind it is Python.
 
