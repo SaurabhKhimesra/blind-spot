@@ -87,8 +87,9 @@ ros2 run blindspot_cpp quickstart                 # the guard in 30 seconds
 
 `fold.launch.py` takes `gui:=false` for headless runs and `record:=true` to
 save every camera frame by simulation timestamp — which is how the clip at the
-top of this README and the per-step CSV behind the arm table are produced. It starts the servo node once
-both controller managers are up, and exits when the act completes.
+top of this README and the per-step CSV behind the arm table are produced. It
+starts the servo node when the second cell's arm controller has finished
+loading, and exits when the act completes.
 
 ## Repository layout
 
@@ -106,7 +107,7 @@ A colcon workspace with four packages:
 | Controller | Retreat 180° | Dropout spike | 2 features | Collapsed target | Clean cost |
 |---|---|---|---|---|---|
 | Classic IBVS | ✗ 68.19 m, diverges | ✗ 28.7× | ✓ 0.9× | ✓ conv, 8e-11 | baseline |
-| Partitioned (2001) | ✓ 0.80 m, converges | ✓ 1.1× | ✗ 288.4× | ✗ floors at 7.3e-3 | +13% |
+| Partitioned (2001) | ✓ 0.80 m, converges | ✓ 1.1× | ✗ 288.2× | ✗ floors at 7.3e-3 | +13% |
 | Adaptive-rank truncation | ✗ 13.77 m, diverges | ✓ 0.9× | ✓ 0.9× | ✓ conv, 2.4e-5 | baseline |
 | Both combined (fixed) | ✓ 0.80 m, converges | ✓ 1.1× | ✗ 11.6× | ✗ floors at 2.0e-3 | +13% |
 | Switched, feature count | ✓ 0.80 m, converges | ✓ 1.1× | ✓ 0.5× | ✗ floors at 2.0e-3 | +13% |
@@ -132,8 +133,11 @@ calibrated per target, never tuned by hand.
 
 ![Camera retreat: image error falls monotonically while the camera flies metres away from the target](docs/fig1_retreat.png)
 
-*Camera retreat, the case that makes image error useless as a health signal:
-the feature error decreases at every step while the camera flies 68 m away.*
+*Camera retreat, the case that makes image error useless as a health signal.
+Shown at 160°, where the run still recovers: the feature error falls at every
+single step while the camera backs away to 4.8 m, and only the conditioning of
+`L` sees it coming. At exactly 180° it does not recover — that is the 68.19 m
+row in the table above.*
 
 ## The four failure modes
 
@@ -212,13 +216,18 @@ ros2 run blindspot_cpp guard_node --ros-args \
 | out | `~/partition_ok` | `std_msgs/Bool` |
 | out | `/diagnostics` | `diagnostic_msgs/DiagnosticArray` |
 
+Parameters are `calibration` (required), `fovy_deg` (used only when
+`camera_info` carries no intrinsics) and `expected_ids`, which ignores any
+detection whose id is not in the list.
+
 It controls nothing — gate your own servo loop on the Bool. It refuses to
 start without a calibration. Detections are ordered **by marker id** before
 the polygon area is computed (a self-crossing order would fire the guard for
 reasons unrelated to geometry), with an angular fallback; the ordering used is
-reported, and the diagnostic escalates to ERROR if the shoelace area and the
-convex-hull area disagree. Intrinsics come from `camera_info`, with a stated
-`(W−1)/2` principal-point fallback.
+reported, and the diagnostic escalates to ERROR when the points as ordered
+still enclose much less area than an angular sort about their centroid would.
+Intrinsics come from `camera_info`, with a stated `(W−1)/2` principal-point
+fallback.
 
 `demo.launch.py` drives it with synthetic detections that are shuffled every
 frame:
