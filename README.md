@@ -37,38 +37,38 @@ This repository:
   the node, so the decision path is shared but the transport is not.
 
 Every result is produced by code in this workspace and locked by
-`colcon test`: **177 regression checks, 16 finite-difference checks, 34 API
-checks.**
+`colcon test`: **225 checks** across four suites.
+
+The runtime — guard, control law, calibrator and all five nodes — is **C++**
+(Eigen, rclcpp). The control study behind it is Python.
 
 ## Quick start
 
-**The study needs no ROS.** The guard library and all three check suites are
-pure numpy, so the numbers in this README reproduce on any machine in under a
-minute:
+**The study needs no ROS.** It is pure numpy, so every number in the results
+table below reproduces on any machine in under a minute:
 
 ```bash
 git clone https://github.com/SaurabhKhimesra/blind-spot && cd blind-spot
 pip install ./src/blindspot
-regression        # 177 checks, ~20 s
+regression        # 170 checks, ~20 s
 fd_check          # 16 finite-difference checks
-api_checks        # 34 API checks
 compare           # the results table below
-quickstart        # the library in 30 seconds
 ```
 
-**For the ROS 2 node and the Gazebo act** — Ubuntu 26.04, ROS 2 Lyrical,
-Gazebo:
+**The guard, the nodes and the Gazebo act are C++**, and build with the
+workspace — Ubuntu 26.04, ROS 2 Lyrical, Gazebo:
 
 ```bash
 sudo apt install ros-lyrical-desktop ros-lyrical-vision-msgs \
     ros-lyrical-ros-gz ros-lyrical-gz-ros2-control ros-lyrical-ros2-controllers \
-    ros-lyrical-ur-description ros-lyrical-xacro ros-lyrical-urdfdom-py \
-    python3-colcon-common-extensions python3-matplotlib python3-opencv python3-pytest
+    ros-lyrical-ur-description ros-lyrical-xacro \
+    g++ libeigen3-dev nlohmann-json3-dev libopencv-dev \
+    python3-colcon-common-extensions python3-matplotlib python3-pytest
 
 git clone https://github.com/SaurabhKhimesra/blind-spot && cd blind-spot
 source /opt/ros/lyrical/setup.bash
 colcon build && source install/setup.bash
-colcon test && colcon test-result --verbose       # 3 suites, all must pass
+colcon test && colcon test-result --verbose       # 4 suites, all must pass
 ```
 
 Then:
@@ -78,9 +78,11 @@ ros2 launch blindspot_arm fold.launch.py          # the Gazebo act, two UR5e cel
 ros2 launch blindspot_ros sim.launch.py           # servo loop through the guard, in RViz
 ros2 launch blindspot_ros demo.launch.py          # guard node on synthetic detections
 
-ros2 run blindspot regression                     # the 177 checks, printed
+ros2 run blindspot regression                     # the 170 study checks, printed
 ros2 run blindspot compare                        # the results table, plus the rules it omits
-ros2 run blindspot quickstart                     # the library in 30 seconds
+ros2 run blindspot_cpp api_checks                 # the API contract, incl. what it refuses
+ros2 run blindspot_cpp arm_checks                 # the folding-part act
+ros2 run blindspot_cpp quickstart                 # the guard in 30 seconds
 ```
 
 `fold.launch.py` takes `gui:=false` for headless runs and `record:=true` to
@@ -90,13 +92,14 @@ both controller managers are up, and exits when the act completes.
 
 ## Repository layout
 
-A colcon workspace with three packages:
+A colcon workspace with four packages:
 
 | package | what it holds |
 |---|---|
-| [`blindspot`](src/blindspot) | The guard library (`FeatureGuard`, calibration, units, the detection bridge), the control study (`blindspot.study`: classic, partitioned, truncated and switched IBVS, the scenarios, the sweeps and figures), the arm's control law, and the three check suites |
-| [`blindspot_ros`](src/blindspot_ros) | The guard as a ROS 2 node, a synthetic-detection publisher, and a live servo simulation with RViz |
-| [`blindspot_arm`](src/blindspot_arm) | Two UR5e cells in one Gazebo world: URDF with an eye-in-hand camera, `gz_ros2_control`, joint trajectory controllers, the folding-part world, the servo node, hand-written kinematics, blob detection, a frame recorder |
+| [`blindspot_cpp`](src/blindspot_cpp) | **C++.** The guard library (`FeatureGuard`, calibration, units, the detection bridge), the arm's control law, hand-written kinematics, blob detection, and all five nodes: guard, synthetic detections, RViz simulation, the Gazebo fold act and the frame recorder. Plus the API and arm-act checks |
+| [`blindspot`](src/blindspot) | **Python.** The control study (`blindspot.study`: classic, partitioned, truncated and switched IBVS, the scenarios, the sweeps and figures) and the regression and finite-difference suites that lock its results |
+| [`blindspot_ros`](src/blindspot_ros) | Launch wiring and the RViz layout for the guard node and the servo simulation |
+| [`blindspot_arm`](src/blindspot_arm) | Two UR5e cells in one Gazebo world: URDF with an eye-in-hand camera, `gz_ros2_control`, joint trajectory controllers, the folding-part world, and the launch wiring |
 
 ## Results
 
@@ -150,26 +153,32 @@ truth.
 The partition's substitute for depth is σ = √(area of the marker polygon), so
 that is what must be healthy for the partition to be safe:
 
-```python
-from blindspot import FeatureGuard
-from blindspot.ros_bridge import order_features  # the signal is order-dependent
+```cpp
+#include "blindspot/guard.hpp"
+#include "blindspot/ros_bridge.hpp"   // the signal is order-dependent
 
-guard = FeatureGuard.load("my_target.json")      # from calibration; no default
-s_visible, _, _ = order_features(s_visible, ids) # by marker id; angular fallback
+auto guard = blindspot::FeatureGuard::load("my_target.json");  // no default
+auto f = blindspot::features_to_normalised(uv, k, ids);  // id order, angular fallback
 
-if guard.partition_ok(s_visible):                # normalised image coordinates
-    v = my_partitioned_control(...)
-else:
-    v = my_plain_control(...)
+if (guard.partition_ok(f.s)) {                // normalised image coordinates
+  v = my_partitioned_control(...);
+} else {
+  v = my_plain_control(...);
+}
 ```
+
+Features are an `Eigen::MatrixX2d`. There is no default constructor: a guard
+cannot exist without a calibration, and `static_assert`s in `api_checks.cpp`
+hold that open.
 
 **Order the points first.** The signal is a shoelace polygon area, so a
 self-crossing order encloses less and reads as a collapse that has not
 happened: on a healthy six-marker ring, shuffled input fires the guard on
-about half of all orderings. `guard_node` does this for you; a direct library
-caller must do it.
+about half of all orderings. `features_to_normalised` does it by marker id,
+falling back to an angular sort, and `guard_node` calls it for you; a direct
+library caller must do it itself.
 
-**Calibration** (`ros2 run blindspot calibrate`) samples healthy poses around
+**Calibration** (`ros2 run blindspot_cpp calibrate`) samples healthy poses around
 the goal and takes the 1st percentile, **per target** (thresholds do not
 transfer: the ring's and the square's differ by 4.5×) and **per visible
 feature count**, because a subset of the markers always spans a smaller
@@ -191,7 +200,7 @@ hold-offs of 0, 2, 3 and 5 steps.
 ## The ROS 2 node
 
 ```bash
-ros2 run blindspot_ros guard_node --ros-args \
+ros2 run blindspot_cpp guard_node --ros-args \
     -p calibration:=/abs/path/my_target.json \
     -r detections:=/aruco/detections -r camera_info:=/camera/camera_info
 ```
@@ -234,32 +243,33 @@ Measured over three runs, identical until the fold:
 
 | | partition always on | with the guard |
 |---|---|---|
-| guard decision | not used | fires **0.96–0.99 s** into the fold, margin 0.87–0.90× |
-| distance to the part | 26.3 cm → **protective stop at 15.9–17.2 cm**, 1.39–1.47 s in | **holds 22–24 cm** |
+| guard decision | not used | fires **0.97–1.00 s** into the fold, margin 0.87–0.92× |
+| distance to the part | 26.3 cm → **protective stop at 15.8–17.4 cm**, 1.39–1.47 s in | **holds 22–24 cm** |
 | markers detected | 6/6 throughout | 6/6 throughout |
 
-The same act in numpy with the same control law module: the partition
-reaches **6.8 cm** and loses the markers; the guard fires 0.9 s in and holds
-**18 cm**; plain IBVS alone holds **22.5 cm** — so the partition is what
-fails, not the arm or the detector.
+The same act offline, against the same `blindspot/arm_law.hpp` the arms link
+(`ros2 run blindspot_cpp arm_checks`): the partition reaches **6.8 cm** and
+loses the markers; the guard fires 0.9 s in and holds **18 cm**; plain IBVS
+alone holds **22.5 cm** — so the partition is what fails, not the arm or the
+detector.
 
-- **σ₆ never fires** (minimum 1.29×): folding *away* from the camera adds
+- **σ₆ never fires** (minimum 1.31×): folding *away* from the camera adds
   depth variation, so the interaction matrix stays well conditioned. The
   feature signal catches what the spectral one cannot.
 - **The guard wins a race, and only a race.** It watches the area the
   partition drives to its goal, so it fires only when the fold outpaces the
   depth loop: 75° within 1 s, 80° within 1.5 s, 85° within 2 s. Slower folds
-  are masked — at 85° over 3 s the guarded cell lunges to 2 cm exactly like
-  the unguarded one.
+  are masked — at 85° over 3 s the guarded cell lunges **exactly like the
+  unguarded one**, the two standoffs agreeing to 1e-9.
 - **What the act does not show.** Held folded, the fallback creeps along an
   orbit about the hinge line that the image cannot see (‖v‖ 0.03 → 0.60 over
   4 s); re-enabling the partition mid-unfold produced a 6.05 command spike.
   The act ends 2.5 s after the fold completes for that reason
   (`t_fold:=20.0`, a 1 s ramp, `t_end:=23.5`).
 
-The arm is driven through its geometric Jacobian, hand-written in numpy from
+The arm is driven through its geometric Jacobian, hand-written in Eigen from
 the URDF and verified against TF to 1e-6 m. The control law the arms run
-(`blindspot.arm_law`) is the same module the regression checks import.
+(`blindspot/arm_law.hpp`) is the same header `arm_checks` includes.
 
 ## Where the two signals disagree
 
@@ -357,16 +367,20 @@ Each is locked by a check, with the measurement that settled it.
 
 ## Verification
 
-- `colcon test` runs three suites: **177** regression checks locking every
-  number above, **16** finite-difference checks of every derivative and sign
-  the controllers rely on, and **34** checks of the library API and the ROS
-  detection bridge, including the things they refuse to do.
+- `colcon test` runs four suites, **225** checks in all: **170** regression
+  checks locking every number above, **16** finite-difference checks of every
+  derivative and sign the controllers rely on, **32** checks of the library
+  API and the ROS detection bridge including the things they refuse to do,
+  and **7** checks of the folding-part act against the arm's own control law.
 - Derivatives are verified by finite difference rather than by reasoning about
   sign conventions; two sign bugs in the partitioned law were found that way.
-- The guard node was verified on ROS 2 Lyrical (Ubuntu 26.04, Python 3.14),
-  which exposed a shutdown bug the earlier Jazzy build did not: on Lyrical,
-  `spin()` raises `ExternalShutdownException` on Ctrl-C, not
-  `KeyboardInterrupt`.
+- The guard node was verified on ROS 2 Lyrical (Ubuntu 26.04): across one
+  cycle of `demo.launch.py` it publishes 40 `partition_ok=true` against 88
+  `false`, the 1:2 expected from one healthy regime and two degenerate ones.
+- Thresholds are percentiles over sampled poses, so they are statistical
+  estimates rather than constants. Calibrate once and ship the file when the
+  exact value matters; `FeatureGuard::load` and the calibrator share one
+  schema.
 
 ## References
 
