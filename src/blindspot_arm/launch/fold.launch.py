@@ -93,12 +93,14 @@ def generate_launch_description():
     # its own cell, with the other cell outside its field of view
     right, right_arm = cell(share, "right", 2.5)
 
-    servo = Node(package=PKG, executable="fold", name="blindspot_fold",
+    servo = Node(package="blindspot_cpp", executable="fold_node",
+                 name="blindspot_fold",
                  output="screen",
                  parameters=[{"log": LaunchConfiguration("log"),
                               "t_fold": LaunchConfiguration("t_fold"),
                               "t_end": LaunchConfiguration("t_end")}])
-    recorder = Node(package=PKG, executable="record", name="blindspot_record",
+    recorder = Node(package="blindspot_cpp", executable="record_node",
+                    name="blindspot_record",
                     output="log", condition=IfCondition(record),
                     parameters=[{"out": LaunchConfiguration("out")}])
 

@@ -7,23 +7,35 @@ The detections cycle healthy -> occluded to two markers -> collapsed target,
 and are shuffled every frame so the ordering logic is exercised, not assumed.
 """
 
+import subprocess
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-from blindspot_ros.example_target import ensure_calibration
+
+
+def _calibration(given):
+    """Path to a calibration: the one given, or the example ring calibrated now.
+
+    `ros2 run blindspot_cpp example_target` prints the path on its last line.
+    """
+    out = subprocess.run(
+        ["ros2", "run", "blindspot_cpp", "example_target"] + ([given] if given else []),
+        capture_output=True, text=True, check=True)
+    return out.stdout.strip().splitlines()[-1]
 
 
 def nodes(context):
     given = LaunchConfiguration("calibration").perform(context)
-    cal = ensure_calibration(given)
+    cal = _calibration(given)
     return [
         LogInfo(msg="guard calibration: %s%s" % (
             cal, "" if given else "  (known-good example ring)")),
-        Node(package="blindspot_ros", executable="fake_detections",
+        Node(package="blindspot_cpp", executable="fake_detections",
              name="fake_detections", output="screen"),
-        Node(package="blindspot_ros", executable="guard_node",
+        Node(package="blindspot_cpp", executable="guard_node",
              name="blindspot_guard", output="screen",
              parameters=[{"calibration": cal}]),
     ]

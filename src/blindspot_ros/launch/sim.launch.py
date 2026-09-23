@@ -12,26 +12,38 @@ truncated law when False. The scene cycles healthy -> occluded to two markers
 import os
 
 from ament_index_python.packages import get_package_share_directory
+import subprocess
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-from blindspot_ros.example_target import ensure_calibration
+
+
+def _calibration(given):
+    """Path to a calibration: the one given, or the example ring calibrated now.
+
+    `ros2 run blindspot_cpp example_target` prints the path on its last line.
+    """
+    out = subprocess.run(
+        ["ros2", "run", "blindspot_cpp", "example_target"] + ([given] if given else []),
+        capture_output=True, text=True, check=True)
+    return out.stdout.strip().splitlines()[-1]
 
 
 def nodes(context):
     given = LaunchConfiguration("calibration").perform(context)
-    cal = ensure_calibration(given)
+    cal = _calibration(given)
     rviz = os.path.join(get_package_share_directory("blindspot_ros"),
                         "rviz", "guard.rviz")
     return [
         LogInfo(msg="guard calibration: %s%s" % (
             cal, "" if given else "  (known-good example ring)")),
-        Node(package="blindspot_ros", executable="sim_node",
+        Node(package="blindspot_cpp", executable="sim_node",
              name="blindspot_sim", output="screen"),
-        Node(package="blindspot_ros", executable="guard_node",
+        Node(package="blindspot_cpp", executable="guard_node",
              name="blindspot_guard", output="screen",
              parameters=[{"calibration": cal}]),
         Node(package="rviz2", executable="rviz2", name="rviz2",
