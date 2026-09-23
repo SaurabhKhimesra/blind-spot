@@ -1,4 +1,7 @@
-"""colcon test entry point: the three check suites must pass in full."""
+"""colcon test entry point: both Python check suites must pass in full.
+
+The API and arm-act suites run as blindspot_cpp tests.
+"""
 
 import re
 import subprocess
@@ -9,7 +12,6 @@ import pytest
 SUITES = [
     ("blindspot.checks.regression", r"(\d+)/(\d+) passed"),
     ("blindspot.checks.fd_check", r"(\d+)/(\d+) finite-difference checks passed"),
-    ("blindspot.checks.api", r"(\d+)/(\d+) passed"),
 ]
 
 
