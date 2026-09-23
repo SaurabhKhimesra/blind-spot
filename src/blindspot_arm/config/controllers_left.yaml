@@ -5,8 +5,9 @@
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    # MoveIt Servo drives this. velocity_controllers is not packaged on this
-    # distro, so Servo is configured to emit trajectory_msgs/JointTrajectory.
+    # fold_node drives this directly with trajectory_msgs/JointTrajectory.
+    # velocity_controllers is not packaged on this distro, and the servo loop
+    # already resolves its own joint command, so position control is enough.
     arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
