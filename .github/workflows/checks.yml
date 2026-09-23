@@ -1,15 +1,15 @@
 name: checks
 
-# The three suites are pure numpy: they lock every number in the README and
-# need no ROS installation. The ROS packages are built and tested separately,
-# on the distro they target.
+# The study is pure numpy: it locks every number in the README and needs no
+# ROS installation, so it runs here on every push. The guard itself is C++ and
+# its two suites run under colcon test, on the distro they target.
 on:
   push:
   pull_request:
   workflow_dispatch:
 
 jobs:
-  suites:
+  study:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -20,14 +20,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install the guard library
+      - name: Install the study
         run: pip install ./src/blindspot
-      - name: Regression checks (177)
+      - name: Regression checks (170)
         run: python -m blindspot.checks.regression
       - name: Finite-difference checks (16)
         run: python -m blindspot.checks.fd_check
-      - name: API checks (34)
-        run: python -m blindspot.checks.api
 
   lint:
     runs-on: ubuntu-latest
