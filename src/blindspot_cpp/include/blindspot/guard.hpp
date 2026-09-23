@@ -38,8 +38,9 @@ inline constexpr const char * kCalibrationSchema = "blindspot/guard-calibration/
 /// noise largely cancels inside it: measured, 2 px of per-point noise moves
 /// this by well under 1% of a typical threshold.
 ///
-/// The shoelace sum depends on the ORDER of the points. Order them before
-/// calling this - see ros_bridge.hpp.
+/// The points must already be in polygon order. This is a shoelace area, so
+/// an order that crosses itself encloses less and reads as a collapse that
+/// has not happened - see FeatureGuard.
 double polygon_sigma(const Eigen::Ref<const Eigen::MatrixX2d> & s);
 
 /// Everything behind one decision. Log this, not just the bool.
@@ -96,6 +97,16 @@ private:
 ///
 /// `s_visible` is an (N, 2) matrix of the CURRENTLY VISIBLE features in
 /// normalised image coordinates - see units.hpp.
+///
+/// ORDER MATTERS. The signal is a shoelace polygon area, so the points must
+/// arrive in polygon order, the same order the calibration used. A detector
+/// reports whatever order it happens to find, and a self-crossing order
+/// encloses less area, which reads as a collapse that has not happened.
+/// Measured on a healthy six-marker ring, feeding the guard shuffled points
+/// fires it on about half of all orderings. Order first with
+/// features_to_normalised or order_features (by marker id, or an angular sort
+/// about the centroid as a fallback) and check the result with
+/// ordering_is_suspect; guard_node does both for you.
 class FeatureGuard
 {
 public:

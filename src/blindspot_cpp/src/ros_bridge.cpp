@@ -146,12 +146,14 @@ bool ordering_is_suspect(const Eigen::Ref<const Eigen::MatrixX2d> & uv, double t
   if (uv.rows() < 3) {
     return false;
   }
-  const Eigen::MatrixX2d hull = take_rows(uv, angular_order(uv));
-  const double a_hull = shoelace(hull);
-  if (a_hull <= 0.0) {
+  // Not the convex hull: the angular sort only coincides with it when the
+  // points are in convex position.
+  const Eigen::MatrixX2d sorted = take_rows(uv, angular_order(uv));
+  const double reference = shoelace(sorted);
+  if (reference <= 0.0) {
     return false;
   }
-  return shoelace(uv) < tol * a_hull;
+  return shoelace(uv) < tol * reference;
 }
 
 }  // namespace blindspot
