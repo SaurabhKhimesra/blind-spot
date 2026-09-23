@@ -20,8 +20,8 @@
 // cell's fallback creeps (a fully folded part leaves an orbit about the hinge
 // line that the image cannot see), and switching the partition back on during
 // the unfold produced a 6.05 command spike that lost the target. The act ends
-// 2.5 s after the fold for that reason, and the clip claims only what the act
-// shows.
+// 2.5 s after the fold completes for that reason (t_fold=20.0, a 1 s ramp,
+// t_end=23.5), and the clip claims only what the act shows.
 //
 // Everything runs on SIM time, so recording at a reduced real-time factor
 // changes nothing but wall-clock duration.
