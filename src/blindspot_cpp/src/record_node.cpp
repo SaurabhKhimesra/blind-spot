@@ -41,9 +41,10 @@ public:
     declare_parameter<std::string>("out", "/tmp/blindspot_frames");
     out_ = get_parameter("out").as_string();
 
-    // The Python used a 6-worker thread pool to keep imwrite off the executor
-    // thread. Here each topic gets its own callback group on a multithreaded
-    // executor, which does the same job without a second queue to reason about.
+    // imwrite is slow enough to drop frames if it runs on the executor
+    // thread, so each topic gets its own callback group and the executor is
+    // multithreaded. A worker pool would do the same job with one more queue
+    // to reason about.
     rclcpp::QoS qos(200);
     qos.reliable().keep_last(200);
     for (const auto & [name, topic] : kTopics) {

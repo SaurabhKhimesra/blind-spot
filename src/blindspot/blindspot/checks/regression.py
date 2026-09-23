@@ -407,8 +407,9 @@ check("alpha_guard alone FAILS the two-feature case", spike(al_2) > 5,
 # ----------------------------------------------------------------------
 # 11. Where the two signals genuinely differ: the three-point danger cylinder
 #     (Michel & Rives 1993). L is singular while the polygon area is constant.
-#     Detection differs; see BRIEF notes for why it does not become a control
-#     advantage.
+#     Detection differs; the outcome does not. Section 18 below runs the
+#     same geometry to completion and finds every controller landing on the
+#     same pose error.
 # ----------------------------------------------------------------------
 print("\n--- danger cylinder: detection separates, outcome does not ---")
 

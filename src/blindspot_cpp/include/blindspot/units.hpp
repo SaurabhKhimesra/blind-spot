@@ -10,8 +10,8 @@
 // coordinates onto a CONTINUOUS pixel range [0, W], so the optical axis lands
 // at continuous coordinate W/2; OpenCV indexes pixel CENTRES, which sit half a
 // pixel lower. Using W/2 shows up as a systematic half-pixel bias in every
-// feature - see the "Five bugs" section of the README, where it hid behind a
-// corner-refinement method with a compensating offset.
+// feature, which is easy to miss: here it hid for a while behind a corner
+// refinement whose own offset happened to cancel most of it.
 #ifndef BLINDSPOT__UNITS_HPP_
 #define BLINDSPOT__UNITS_HPP_
 

@@ -1,6 +1,7 @@
 """Task 1: make the partition a RUNTIME decision instead of a fixed one.
 
-Established by the four fixed controllers (see BRIEF.md):
+Established by the four fixed controllers, and locked by
+blindspot/checks/regression.py:
 
   - Camera retreat is a COUPLING failure. The 2001 partition fixes it,
     truncation does nothing for it.
@@ -22,7 +23,7 @@ error is provably useless as a health signal here (alignment sits at exactly
 
 Two rules are implemented.
 
-`count` - the rule BRIEF.md suggests as a sensible first try. Keep the
+`count` - the obvious first try, and the one to beat. Keep the
     partition while enough features remain to leave the reduced inversion
     overdetermined. L_xy is 2N x 4, so that means N >= 3.
 
