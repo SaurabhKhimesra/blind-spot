@@ -2,10 +2,10 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>blindspot</name>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <description>
-    The feature guard for partitioned image-based visual servoing, the control
-    study behind it, and the checks that lock its results.
+    The control study behind the feature guard, and the checks that lock its
+    results. The guard itself is C++, in the blindspot_cpp package.
   </description>
   <maintainer email="learningkhimesra@gmail.com">Saurabh Khimesra</maintainer>
   <license>MIT</license>

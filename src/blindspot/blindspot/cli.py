@@ -11,10 +11,8 @@ def _run(module):
 
 regression = _run("blindspot.checks.regression")
 fd_check = _run("blindspot.checks.fd_check")
-api_checks = _run("blindspot.checks.api")
 compare = _run("blindspot.study.compare")
 tau_sweep = _run("blindspot.study.tau_sweep")
 noise_study = _run("blindspot.study.noise_study")
 fig_retreat = _run("blindspot.study.fig_retreat")
 fig_failure_modes = _run("blindspot.study.fig_failure_modes")
-quickstart = _run("blindspot.quickstart")

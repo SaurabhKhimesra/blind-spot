@@ -1,12 +1,12 @@
 from setuptools import find_packages, setup
 
 PKG = "blindspot"
-SCRIPTS = ["regression", "fd_check", "api_checks", "compare", "tau_sweep",
-           "noise_study", "fig_retreat", "fig_failure_modes", "quickstart"]
+SCRIPTS = ["regression", "fd_check", "compare", "tau_sweep",
+           "noise_study", "fig_retreat", "fig_failure_modes"]
 
 setup(
     name=PKG,
-    version="0.2.0",
+    version="0.3.0",
     packages=find_packages(exclude=["test"]),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + PKG]),
@@ -16,10 +16,9 @@ setup(
     zip_safe=True,
     maintainer="Saurabh Khimesra",
     maintainer_email="learningkhimesra@gmail.com",
-    description="Feature guard for partitioned IBVS, and the study behind it.",
+    description="The IBVS degeneracy study and the checks that lock its results. The guard itself is C++, in blindspot_cpp.",
     license="MIT",
     extras_require={"test": ["pytest"]},
-    entry_points={"console_scripts": (
-        ["calibrate = blindspot.calibrate:main"]
-        + ["%s = blindspot.cli:%s" % (s, s) for s in SCRIPTS])},
+    entry_points={"console_scripts":
+        ["%s = blindspot.cli:%s" % (s, s) for s in SCRIPTS]},
 )
