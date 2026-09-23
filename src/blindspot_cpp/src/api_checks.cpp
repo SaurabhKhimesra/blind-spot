@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include <sys/wait.h>   // WIFEXITED, WEXITSTATUS for the calibrate subprocess
+
 #include <Eigen/Core>
 #include <nlohmann/json.hpp>
 
