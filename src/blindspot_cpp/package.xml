@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>blindspot_cpp</name>
+  <version>0.1.0</version>
+  <description>
+    The feature guard for partitioned image-based visual servoing: the guard
+    library, the eye-in-hand control law, threshold calibration, kinematics
+    and marker detection, and the ROS 2 nodes that run them.
+  </description>
+  <maintainer email="learningkhimesra@gmail.com">Saurabh Khimesra</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>eigen3_cmake_module</depend>
+  <depend>eigen</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>vision_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>urdf</depend>
+  <depend>nlohmann-json-dev</depend>
+  <depend>libopencv-dev</depend>
+
+  <exec_depend>xacro</exec_depend>
+  <!-- fold_node resolves blindspot_arm's share directory at runtime for the
+       xacro, but must NOT depend on it: blindspot_arm depends on this
+       package for the node binaries, and declaring both ways is a cycle. -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
