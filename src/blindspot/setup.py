@@ -16,9 +16,13 @@ setup(
     zip_safe=True,
     maintainer="Saurabh Khimesra",
     maintainer_email="learningkhimesra@gmail.com",
-    description="The IBVS degeneracy study and the checks that lock its results. The guard itself is C++, in blindspot_cpp.",
+    description=("The IBVS degeneracy study and the checks that lock its "
+                 "results. The guard itself is C++, in blindspot_cpp."),
     license="MIT",
-    extras_require={"test": ["pytest"]},
-    entry_points={"console_scripts":
-        ["%s = blindspot.cli:%s" % (s, s) for s in SCRIPTS]},
+    # The checks and the results table are numpy only; only the two figure
+    # scripts need matplotlib.
+    extras_require={"test": ["pytest"], "figures": ["matplotlib"]},
+    entry_points={
+        "console_scripts": ["%s = blindspot.cli:%s" % (s, s) for s in SCRIPTS],
+    },
 )

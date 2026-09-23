@@ -21,18 +21,21 @@ norm. Every column states its own measure and threshold.
     ros2 run blindspot fig_failure_modes     # writes fig2_failure_modes.png
 """
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch
 import os
 
-import numpy as np
+import matplotlib
+matplotlib.use("Agg")                        # headless: must precede pyplot
 
-from blindspot.study.ibvs_core import run_ibvs, make_pose, rot_z, rot_x, scenario_camera_retreat
-from blindspot.study.partitioned import run_partitioned
-from blindspot.study.truncated import run_truncated
-from blindspot.study.switched import run_switched, calibrate_sigma6, calibrate_area
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+from matplotlib.patches import FancyBboxPatch  # noqa: E402
+
+from blindspot.study.ibvs_core import (  # noqa: E402
+    run_ibvs, make_pose, rot_z, rot_x, scenario_camera_retreat)
+from blindspot.study.partitioned import run_partitioned  # noqa: E402
+from blindspot.study.truncated import run_truncated  # noqa: E402
+from blindspot.study.switched import (  # noqa: E402
+    run_switched, calibrate_sigma6, calibrate_area)
 
 
 def _out(name):

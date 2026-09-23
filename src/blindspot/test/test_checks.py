@@ -22,5 +22,5 @@ def test_suite_passes_in_full(module, pattern):
     found = re.findall(pattern, run.stdout)
     assert found, "no summary line from %s:\n%s" % (module, run.stdout[-2000:])
     passed, total = map(int, found[-1])
-    failures = [l for l in run.stdout.splitlines() if "FAIL" in l]
+    failures = [line for line in run.stdout.splitlines() if "FAIL" in line]
     assert run.returncode == 0 and passed == total, "\n".join(failures)

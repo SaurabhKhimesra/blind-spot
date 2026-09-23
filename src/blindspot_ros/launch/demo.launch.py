@@ -15,7 +15,6 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
-
 def _calibration(given):
     """Path to a calibration: the one given, or the example ring calibrated now.
 

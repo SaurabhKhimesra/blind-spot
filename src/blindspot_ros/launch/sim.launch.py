@@ -10,16 +10,14 @@ truncated law when False. The scene cycles healthy -> occluded to two markers
 """
 
 import os
-
-from ament_index_python.packages import get_package_share_directory
 import subprocess
 
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-
 
 
 def _calibration(given):

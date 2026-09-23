@@ -7,12 +7,13 @@ The interaction-matrix conditioning is the signal that sees it coming.
 """
 import os
 
-import numpy as np
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+matplotlib.use("Agg")                        # headless: must precede pyplot
 
-from blindspot.study.ibvs_core import scenario_camera_retreat, run_ibvs
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+
+from blindspot.study.ibvs_core import scenario_camera_retreat, run_ibvs  # noqa: E402
 
 
 def _out(name):
