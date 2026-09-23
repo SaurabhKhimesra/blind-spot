@@ -2,20 +2,20 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>blindspot_ros</name>
-  <version>0.2.0</version>
-  <description>Per-step guard for image-based visual servoing: publishes whether the partitioned control law is safe right now.</description>
+  <version>0.3.0</version>
+  <description>Launch files and the RViz layout for the blindspot guard node and the live servo simulation.</description>
   <maintainer email="learningkhimesra@gmail.com">Saurabh Khimesra</maintainer>
   <license>MIT</license>
 
-  <exec_depend>blindspot</exec_depend>
-  <exec_depend>rclpy</exec_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>blindspot_cpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>vision_msgs</exec_depend>
   <exec_depend>diagnostic_msgs</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>rqt_image_view</exec_depend>
-  <exec_depend>python3-numpy</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
@@ -23,6 +23,6 @@
   <exec_depend>launch_ros</exec_depend>
 
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
